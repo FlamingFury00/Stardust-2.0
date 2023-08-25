@@ -55,7 +55,7 @@ namespace RedUtils
 		/// <summary>A Proportional-Derivative control loop used for the "AimAt" function</summary>
 		private static float SteerPD(float angle, float rate)
 		{
-			return Utils.Cap(MathF.Pow(35 * (angle + rate), 3) / 10 , -1f, 1f);
+			return Utils.Cap(MathF.Pow(35 * (angle + rate), 3) / 10, -1f, 1f);
 		}
 
 		/// <summary>Searches through the ball prediction for the first valid shot given by the ShotCheck</summary>
@@ -80,7 +80,7 @@ namespace RedUtils
 				{
 					Ball ballAfterHit = slice.ToBall();
 					Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.8f;
+					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.9f;
 					Vec3 shotTarget = target.Clamp(ballAfterHit);
 
 					// First, check if we can aerial
@@ -114,6 +114,417 @@ namespace RedUtils
 			}
 
 			return null; // if none of those work, we'll just return null (meaning no shot was found)
+		}
+
+		public bool IsClosestKickoff(Car ownCar)
+		{
+			// distance is calculated as distance + index - boost
+			// boost added to allow the bot with the most boost to go for the ball in situations
+			// where 2 bots are more or less equally close
+			if (Teammates.Count == 0)
+			{
+				return true;
+			}
+
+			double ownDistance = (ownCar.Location - Ball.Location).Length() + ownCar.Index;
+			foreach (Car car in Teammates.Concat(new List<Car> { Me }))
+			{
+				if (ownCar.Index == car.Index)
+				{
+					continue;
+				}
+
+				double otherDistance = (car.Location - Ball.Location).Length() + car.Index;
+				if (otherDistance < ownDistance)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		public bool IsSecondClosestKickoff()
+		{
+			if (IsClosestKickoff(Me))
+			{
+				return false;
+			}
+
+			if (Teammates.Count < 1)
+			{
+				return false;
+			}
+
+			double ownDistance = (Me.Location - Ball.Location).Length() + Me.Index;
+			int closestIndex = -1;
+			foreach (Car car in Teammates)
+			{
+				if (IsClosestKickoff(car))
+				{
+					closestIndex = car.Index;
+				}
+			}
+
+			if (closestIndex == Index)
+			{
+				return false;
+			}
+
+			foreach (Car car in Teammates)
+			{
+				if (car.Index == closestIndex)
+				{
+					continue;
+				}
+
+				double otherDistance = (car.Location - Ball.Location).Length() + car.Index;
+				if (otherDistance < ownDistance)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		public bool IsLastOneBack()
+		{
+			// don't use on defense
+			double myY = Me.Location.y * Field.Side(Team);
+			foreach (Car car in Teammates)
+			{
+				if (car.Location.y * Field.Side(Team) > myY)
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public bool InGoalArea()
+		{
+			if (System.Math.Abs(Me.Location.y) > 5050)
+			{
+				if (System.Math.Abs(Me.Location.x) < 880)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		public bool IsAheadOfBall()
+		{
+			return (Me.Location.y > Ball.Location.y + 500 && Team == 0) ||
+				   (Me.Location.y < Ball.Location.y - 500 && Team == 1);
+		}
+
+		public bool IsAheadOfBall2(Vec3 location, int team)
+		{
+			return (location.y > Ball.Location.y + 500 && team == 0) ||
+				   (location.y < Ball.Location.y - 500 && team == 1);
+		}
+
+		public Tuple<bool, int> DemoRotation()
+		{
+			List<Car> possibleCars = new List<Car>();
+			foreach (Car car in Opponents)
+			{
+				if (car.Location.y * Field.Side(Team) < -4000)
+				{
+					double distanceToTarget = (Me.Location - car.Location).Length();
+					float velocity = Me.Velocity.Length();
+					float velocityNeeded = 2200 - velocity;
+					float timeBoostingRequired = velocityNeeded / 991.666f;
+					float boostRequired = 33.3f * timeBoostingRequired;
+					float distanceRequired = velocity * timeBoostingRequired + 0.5f * 991.666f * (timeBoostingRequired * timeBoostingRequired);
+
+					if (velocity < 2200)
+					{
+						if (Me.Boost < boostRequired)
+						{
+							continue;
+						}
+						else if (distanceRequired > distanceToTarget)
+						{
+							continue;
+						}
+						possibleCars.Add(car);
+					}
+
+					else
+					{
+						possibleCars.Add(car);
+					}
+				}
+			}
+
+			if (possibleCars.Count == 0)
+			{
+				return Tuple.Create(false, -1);
+			}
+			if (possibleCars.Count == 1)
+			{
+				return Tuple.Create(true, possibleCars[0].Index);
+			}
+			else
+			{
+				possibleCars.Sort((car1, car2) => (TheirGoal.Location - car1.Location).Length().CompareTo((TheirGoal.Location - car2.Location).Length()));
+				return Tuple.Create(true, possibleCars[0].Index);
+			}
+		}
+
+		public int FriendsAheadOfBall()
+		{
+			int count = 0;
+			foreach (Car car in Teammates)
+			{
+				if ((car.Location.y > Ball.Location.y + 1500 && Team == 0) ||
+					(car.Location.y < Ball.Location.y - 1500 && Team == 1))
+				{
+					count += 1;
+				}
+			}
+			return count;
+		}
+
+		public bool ShouldRotate()
+		{
+			if (IsLastOneBack() && !InGoalArea())
+			{
+				return false;
+			}
+
+			if (DemoRotation().Item1 && !IsAheadOfBall())
+			{
+				return false;
+			}
+
+			if (FriendsAheadOfBall() == 0 && !IsAheadOfBall())
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		public Vec3 Zone5Positioning()
+		{
+			float ballY = Ball.Location.y;
+			float dY = ballY + 1707 * Field.Side(Team);
+			return new Vec3(0, 2 * dY / 3, 0);
+		}
+
+		public bool IsInFrontOfBall()
+		{
+			double meToGoal = (Me.Location - TheirGoal.Location).Length();
+			double ballToGoal = (Ball.Location - TheirGoal.Location).Length();
+			if (meToGoal > 1000 && meToGoal < ballToGoal)
+			{
+				return true;
+			}
+			return false;
+		}
+
+		public bool AreNoBotsBack()
+		{
+			if (!IsAheadOfBall() || IsClosest(Me))
+			{
+				return false;
+			}
+			foreach (Car car in Teammates)
+			{
+				if (!IsAheadOfBall2(car.Location, Team))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public bool IsClosest(Car ownCar, bool teamOnly = false)
+		{
+			if (Teammates.Count == 0 && teamOnly)
+			{
+				return true;
+			}
+
+			bool aheadCounts = teamOnly && AreNoBotsBack() ? true : false;
+
+			if (IsAheadOfBall() && !aheadCounts)
+			{
+				return false;
+			}
+			float factor = 1;
+			if (Me.Location.y * Field.Side(Team) < Ball.Location.y * Field.Side(Team))
+			{
+				factor = 5;
+			}
+			Vec3 actualDistanceVector = ownCar.Location - Ball.Location;
+			float ownDistance;
+			if (teamOnly)
+			{
+				Vec3 biasedDistanceVector = new Vec3(2 * actualDistanceVector.x, factor * actualDistanceVector.y, actualDistanceVector.z);
+				ownDistance = biasedDistanceVector.Length() - (10 * ownCar.Boost);
+			}
+			else
+			{
+				ownDistance = (ownCar.Location - Ball.Location).Length() * factor - (10 * ownCar.Boost);
+			}
+
+			if (!teamOnly)
+			{
+				foreach (Car car in Opponents)
+				{
+					factor = 1;
+					if (-car.Location.y * Field.Side(Team) < -Ball.Location.y * Field.Side(Team))
+					{
+						factor = 5;
+					}
+					float otherDistance = (car.Location - Ball.Location).Length() * factor - (10 * car.Boost);
+					if (otherDistance < ownDistance)
+					{
+						return false;
+					}
+				}
+			}
+
+			foreach (Car car in Teammates.Concat(new List<Car> { Me }))
+			{
+				if (ownCar.Index == car.Index)
+				{
+					continue;
+				}
+				factor = 1;
+				if (car.Location.y * Field.Side(Team) < Ball.Location.y * Field.Side(Team))
+				{
+					factor = 5;
+				}
+
+				float otherDistance;
+				if (teamOnly)
+				{
+					Vec3 otherActualDistanceVector = car.Location - Ball.Location;
+					Vec3 otherBiasedDistanceVector = new Vec3(2 * otherActualDistanceVector.x, factor * otherActualDistanceVector.y, otherActualDistanceVector.z);
+					otherDistance = otherBiasedDistanceVector.Length() - (10 * car.Boost);
+				}
+				else
+				{
+					otherDistance = (car.Location - Ball.Location).Length() * factor - (10 * car.Boost);
+				}
+
+				if (IsAheadOfBall2(car.Location, Team) && !aheadCounts)
+				{
+					continue;
+				}
+				if (otherDistance < ownDistance)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		public bool IsSecondClosest()
+		{
+			if (IsClosest(Me, true))
+			{
+				return false;
+			}
+			if (IsAheadOfBall())
+			{
+				return false;
+			}
+			if (Teammates.Count < 1)
+			{
+				return false;
+			}
+			float factor = 1;
+			if (Me.Location.y * Field.Side(Team) < Ball.Location.y * Field.Side(Team))
+			{
+				factor = 5;
+			}
+
+			Vec3 actualDistanceVector = Me.Location - Ball.Location;
+			Vec3 biasedDistanceVector = new Vec3(
+				2 * actualDistanceVector.x,
+				factor * actualDistanceVector.y,
+				actualDistanceVector.z
+			);
+			float ownDistance = biasedDistanceVector.Length() - (10 * Me.Boost);
+			int closestIndex = -1;
+			foreach (Car car in Teammates)
+			{
+				if (IsClosest(car, true))
+				{
+					closestIndex = car.Index;
+				}
+			}
+
+			if (closestIndex == Index)
+			{
+				return false;
+			}
+			foreach (Car car in Teammates)
+			{
+				if (car.Index == closestIndex)
+				{
+					continue;
+				}
+				factor = 1;
+				if (car.Location.y * Field.Side(Team) < Ball.Location.y * Field.Side(Team))
+				{
+					factor = 5;
+				}
+
+				Vec3 otherActualDistanceVector = car.Location - Ball.Location;
+				Vec3 otherBiasedDistanceVector = new Vec3(
+					2 * otherActualDistanceVector.x,
+					factor * otherActualDistanceVector.y,
+					otherActualDistanceVector.z
+				);
+				float otherDistance = otherBiasedDistanceVector.Length() - (10 * car.Boost);
+				if (otherDistance < ownDistance)
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public int FriendsAttacking()
+		{
+			int count = 0;
+			foreach (Car car in Teammates)
+			{
+				if (car.Location.y * Field.Side(Team) < 0)
+				{
+					count += 1;
+				}
+			}
+			return count;
+		}
+
+		public bool ShouldAttack()
+		{
+			if (Ball.Location.y * Field.Side(Team) <= 0)
+			{
+				return true;
+			}
+
+			return false;
+		}
+
+		public bool ShouldDefend()
+		{
+			if (Ball.Location.y * Field.Side(Team) > 0)
+			{
+				return true;
+			}
+
+			return false;
 		}
 	}
 }
