@@ -36,9 +36,9 @@ namespace RedUtils
 		/// <param name="targetSpeed">The speed we intend to mantain while driving</param>
 		/// <param name="allowDodges">Whether or not we are going to allow dodges to increase speed</param>
 		/// <param name="wasteBoost">>Whether or not we are going to use any amount of boost neccesary to mantain our target speed</param>
-		public Drive(Car car, Vec3 target, float targetSpeed = Car.MaxSpeed, bool allowDodges = true, bool wasteBoost = false)
+		public Drive(Car car, Vec3 target, float targetSpeed = Car.MaxSpeed, bool allowDodges = true, bool wasteBoost = false, bool interruptible = true)
 		{
-			Interruptible = true;
+			Interruptible = interruptible;
 			Finished = false;
 
 			Target = target;
@@ -163,7 +163,7 @@ namespace RedUtils
 								Dodge dodge = new Dodge(bot.Me.Location.FlatDirection(Target));
 
 								if (speedFlipTimeLeft > SpeedFlip.Duration && bot.Me.Boost > 0 && Field.InField(predictedLocation, 500) && WasteBoost)
-								{ 
+								{
 									// Only speedflip if we have time, and have boost
 									Action = new SpeedFlip(bot.Me.Location.FlatDirection(Target));
 								}
@@ -217,7 +217,7 @@ namespace RedUtils
 
 			// Draws a debug line to represent the target
 			bot.Renderer.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
-			
+
 			// Prevents this action from being interrupted during a dodge
 			Interruptible = Action == null || Action.Interruptible;
 

@@ -80,7 +80,7 @@ namespace RedUtils
 				{
 					Ball ballAfterHit = slice.ToBall();
 					Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.9f;
+					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.74f;
 					Vec3 shotTarget = target.Clamp(ballAfterHit);
 
 					// First, check if we can aerial
@@ -526,5 +526,24 @@ namespace RedUtils
 
 			return false;
 		}
+
+		public Car GetClosestTeammate()
+		{
+			Car closestTeammate = Teammates[0];
+			float closestDistance = float.PositiveInfinity;
+
+			foreach (Car mate in Teammates)
+			{
+				float distance = (mate.Location - Me.Location).Length();
+				if (distance < closestDistance)
+				{
+					closestDistance = distance;
+					closestTeammate = mate;
+				}
+			}
+
+			return closestTeammate;
+		}
+
 	}
 }
