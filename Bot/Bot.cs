@@ -53,7 +53,7 @@ namespace Bot
         public override void Run()
         {
             // Prints out the current action to the screen, so we know what our bot is doing
-            Renderer.Text2D(Action != null ? Action.ToString() : "", new Vec3(10, 10), 3, Color.White);
+            // Renderer.Text2D(Action != null ? Action.ToString() : "", new Vec3(10, 10), 3, Color.White);
 
             // Kickoff
             if (IsKickoff && IsClosestKickoff(Me) && Action == null)
@@ -62,7 +62,7 @@ namespace Bot
             }
             else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
             {
-                Action = new GetBoost(Me, interruptible: false);
+                return;
             }
 
             // Rotation and positioning
@@ -79,13 +79,13 @@ namespace Bot
             }
 
             // Boost grabbing
-            if (Me.Boost < 30 && IsSecondClosest() && Action == null)
+            if (Me.Boost < 30 && IsSecondClosest() && !ShouldDefend() && Action == null)
             {
                 Action = new GetBoost(Me);
             }
 
             // Attack
-            if (ShouldAttack() && IsClosest(Me, true) && Action == null)
+            if (ShouldAttack() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
             {
                 // search for the first avaliable shot using DefaultShotCheck
                 Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
@@ -96,20 +96,27 @@ namespace Bot
 
             else if (ShouldAttack() && IsSecondClosest() && Action == null)
             {
-                Action = new Shadow(Me);
+                Action = null;
             }
 
             // Defence
-            if (ShouldDefend() && IsClosest(Me, true) && Action is Drive && Action.Interruptible)
+            if (ShouldDefend() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
             {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal.Crossbar, GetClosestTeammate().Location));
 
                 Action = shot ?? Action ?? null;
             }
 
             else if (ShouldDefend() && IsSecondClosest() && Action == null)
             {
-                Action = new Shadow(Me);
+                Action = null;
+            }
+
+            else if (IsBack() && Action == null)
+            {
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+
+                Action = shot ?? Action ?? null;
             }
 
             else if (Action == null)

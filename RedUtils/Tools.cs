@@ -44,10 +44,10 @@ namespace RedUtils
 				MathF.Atan2(localUp.y, localUp.z) // Angle to roll upright
 			};
 			// Now that we have the angles we need to rotate, we feed them into the PD loops to determine the controller inputs
-			Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
-			Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.2f);
-			Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.15f);
-			Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.25f);
+			Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.011f) * (backwards ? -1 : 1);
+			Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.22f);
+			Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.155f);
+			Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.255f);
 
 			return targetAngles; // Returns the angles, which could be useful for other purposes
 		}
@@ -80,7 +80,7 @@ namespace RedUtils
 				{
 					Ball ballAfterHit = slice.ToBall();
 					Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.74f;
+					ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.77f;
 					Vec3 shotTarget = target.Clamp(ballAfterHit);
 
 					// First, check if we can aerial
@@ -545,5 +545,23 @@ namespace RedUtils
 			return closestTeammate;
 		}
 
+		public Car GetClosestOpponent()
+		{
+			Car closestOpponent = Opponents[0];
+			float closestDistance = float.PositiveInfinity;
+
+			foreach (Car foe in Opponents)
+			{
+				float distance = (foe.Location - Me.Location).Length();
+				if (distance < closestDistance)
+				{
+					closestDistance = distance;
+					closestOpponent = foe;
+				}
+			}
+
+			return closestOpponent;
+
+		}
 	}
 }
