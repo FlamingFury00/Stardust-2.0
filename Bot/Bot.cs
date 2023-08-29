@@ -55,10 +55,16 @@ namespace Bot
             // Prints out the current action to the screen, so we know what our bot is doing
             // Renderer.Text2D(Action != null ? Action.ToString() : "", new Vec3(10, 10), 3, Color.White);
 
+            if (Action != null)
+            {
+                return;
+            }
+
             // Kickoff
             if (IsKickoff && IsClosestKickoff(Me) && Action == null)
             {
                 Action = new Kickoff();
+                return;
             }
             else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
             {
@@ -71,17 +77,20 @@ namespace Bot
                 Vec3 DesiredZone = Zone5Positioning();
 
                 Action = new Drive(Me, DesiredZone, interruptible: false, allowDodges: false);
+                return;
             }
 
-            if (IsInFrontOfBall() && AreNoBotsBack() && Action == null)
-            {
-                Action = new Drive(Me, OurGoal.Location, wasteBoost: true);
-            }
+            // if (IsInFrontOfBall() && AreNoBotsBack() && Action == null)
+            // {
+            //     Action = new Drive(Me, OurGoal.Location, wasteBoost: true);
+            //     return;
+            // }
 
             // Boost grabbing
             if (Me.Boost < 30 && IsSecondClosest() && !ShouldDefend() && Action == null)
             {
                 Action = new GetBoost(Me);
+                return;
             }
 
             // Attack
@@ -94,29 +103,30 @@ namespace Bot
                 Action = shot ?? Action ?? null;
             }
 
-            else if (ShouldAttack() && IsSecondClosest() && Action == null)
+            else if (ShouldAttack() && IsSecondClosest() && (Ball.LatestTouch.Team != Team) && Action == null)
             {
-                Action = null;
+                return;
+            }
+
+            if (IsBack() && ShouldDefend() && IsClosest(Me, true) && Action == null)
+            {
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
+
+                Action = shot ?? Action ?? null;
             }
 
             // Defence
-            if (ShouldDefend() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal.Crossbar, GetClosestTeammate().Location));
+            // if (ShouldDefend() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
+            // {
+            //     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal.Crossbar, GetClosestTeammate().Location));
 
-                Action = shot ?? Action ?? null;
-            }
+            //     Action = shot ?? Action ?? null;
+            // }
 
             else if (ShouldDefend() && IsSecondClosest() && Action == null)
             {
-                Action = null;
-            }
-
-            else if (IsBack() && Action == null)
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-
-                Action = shot ?? Action ?? null;
+                Action = new Shadow(Me);
+                return;
             }
 
             else if (Action == null)
