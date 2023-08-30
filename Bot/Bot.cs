@@ -1,9 +1,6 @@
-﻿using System;
-using System.Threading;
-using System.Drawing;
-using RedUtils;
+﻿using RedUtils;
 using RedUtils.Math;
-using System.Numerics;
+using System;
 /* 
 * This is the main file. It contains your bot class. Feel free to change the name!
 * An instance of this class will be created for each instance of your bot in the game.
@@ -76,18 +73,18 @@ namespace Bot
             {
                 Vec3 DesiredZone = Zone5Positioning();
 
-                Action = new Drive(Me, DesiredZone, interruptible: false, allowDodges: false);
+                Action = new Drive(Me, DesiredZone, interruptible: false, wasteBoost: true);
                 return;
             }
 
-            // if (IsInFrontOfBall() && AreNoBotsBack() && Action == null)
-            // {
-            //     Action = new Drive(Me, OurGoal.Location, wasteBoost: true);
-            //     return;
-            // }
+            if (IsSecondClosest() && AreNoBotsBack() && Action == null)
+            {
+                Action = new Drive(Me, OurGoal.Location, wasteBoost: true);
+                return;
+            }
 
             // Boost grabbing
-            if (Me.Boost < 30 && IsSecondClosest() && !ShouldDefend() && Action == null)
+            if (Me.Boost < 30 && IsSecondClosest() && !ShouldDefend() && GetClosestOpponent().Location.Dist(Ball.Location) >= 700 && Action == null)
             {
                 Action = new GetBoost(Me);
                 return;
@@ -105,6 +102,7 @@ namespace Bot
 
             else if (ShouldAttack() && IsSecondClosest() && (Ball.LatestTouch.Team != Team) && Action == null)
             {
+                Action = new GetBoost(Me);
                 return;
             }
 
@@ -123,9 +121,11 @@ namespace Bot
             //     Action = shot ?? Action ?? null;
             // }
 
-            else if (ShouldDefend() && IsSecondClosest() && Action == null)
+            else if (IsSecondClosest() && (Ball.LatestTouch.Team == Team) && Action == null)
             {
-                Action = new Shadow(Me);
+                // Vec3 location3 = new Vec3((float)(800 * -MathF.Sign(Ball.Location.x)), (float)(4900 * Field.Side(this.Team)));
+
+                Action = new ParkAt(Me, OurGoal.Location);
                 return;
             }
 
