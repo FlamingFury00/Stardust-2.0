@@ -42,10 +42,10 @@ namespace RedUtils
 				MathF.Atan2(localUp.y, localUp.z) // Angle to roll upright
 			};
             // Now that we have the angles we need to rotate, we feed them into the PD loops to determine the controller inputs
-            Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
-            Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.2f);
-            Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.15f);
-            Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.25f);
+            Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.015f) * (backwards ? -1 : 1);
+            Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.25f);
+            Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.151f);
+            Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.251f);
 
             return targetAngles; // Returns the angles, which could be useful for other purposes
         }
@@ -78,7 +78,7 @@ namespace RedUtils
                 {
                     Ball ballAfterHit = slice.ToBall();
                     Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-                    ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.77f;
+                    ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.75f;
                     Vec3 shotTarget = target.Clamp(ballAfterHit);
 
                     // First, check if we can aerial
@@ -88,11 +88,11 @@ namespace RedUtils
                         return aerialShot; // If so, go for it!
                     }
 
-                    // And lastly, a double jump shot
-                    DoubleJumpShot doubleJumpShot = new DoubleJumpShot(Me, slice, shotTarget);
-                    if (doubleJumpShot.IsValid(Me))
+                    // If we can't aerial, let's try a ground shot
+                    GroundShot groundShot = new GroundShot(Me, slice, shotTarget);
+                    if (groundShot.IsValid(Me))
                     {
-                        return doubleJumpShot;
+                        return groundShot;
                     }
 
                     // Otherwise, we'll try a jump shot
@@ -102,11 +102,11 @@ namespace RedUtils
                         return jumpShot;
                     }
 
-                    // If we can't aerial, let's try a ground shot
-                    GroundShot groundShot = new GroundShot(Me, slice, shotTarget);
-                    if (groundShot.IsValid(Me))
+                    // And lastly, a double jump shot
+                    DoubleJumpShot doubleJumpShot = new DoubleJumpShot(Me, slice, shotTarget);
+                    if (doubleJumpShot.IsValid(Me))
                     {
-                        return groundShot;
+                        return doubleJumpShot;
                     }
                 }
             }
@@ -560,6 +560,41 @@ namespace RedUtils
 
             return closestOpponent;
 
+        }
+        public Boost GetBestBoost()
+        {
+            ;
+            Boost bestBoost = null;
+            float bestScore = float.PositiveInfinity;
+
+            List<Boost> availableBoosts = Field.Boosts.FindAll(boost =>
+                boost.IsLarge &&
+                boost.IsActive &&
+                (boost.Location.Dist(OurGoal.Location)) < Ball.Location.Dist(OurGoal.Location) &&
+                (Opponents[0].Location.Dist(Ball.Location)) > (Me.Location.Dist(Ball.Location)) &&
+                Opponents[0].Location.Length() > 1000
+            );
+
+            foreach (var boost in availableBoosts)
+            {
+                Vec3 boostToBall = (Ball.Location - boost.Location).Normalize();
+                Vec3 botToBoost = (boost.Location - Me.Location).Normalize();
+                Vec3 botDirection = Me.Forward;
+
+                float distanceToBoost = (boost.Location.Dist(Me.Location));
+                float distanceBoostToBall = (boost.Location.Dist(Ball.Location));
+                float angle = (float)System.Math.Acos(botDirection.Dot(botToBoost));
+
+                float score = distanceToBoost + distanceBoostToBall + angle * 100;
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestBoost = boost;
+                }
+            }
+
+            return bestBoost;
         }
     }
 }

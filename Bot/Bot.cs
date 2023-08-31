@@ -1,7 +1,7 @@
 ﻿using RedUtils;
 using RedUtils.Math;
 using System;
-/* 
+/*
 * This is the main file. It contains your bot class. Feel free to change the name!
 * An instance of this class will be created for each instance of your bot in the game.
 * Your bot derives from the "RedUtilsBot" class, contained in the Bot file inside the RedUtils project.
@@ -28,11 +28,6 @@ namespace Bot
         public float FreeTime1 { get => freeTime; set => freeTime = value; }
         public float Eta1 { get => eta; set => eta = value; }
         public float Power1 { get => power; set => power = value; }
-        public bool HasPossesion2 { get => hasPossesion; set => hasPossesion = value; }
-        public BallSlice Intercept2 { get => intercept; set => intercept = value; }
-        public float FreeTime2 { get => freeTime; set => freeTime = value; }
-        public float Eta2 { get => eta; set => eta = value; }
-        public float Power2 { get => power; set => power = value; }
     }
 
     // Your bot class! :D
@@ -52,16 +47,15 @@ namespace Bot
             // Prints out the current action to the screen, so we know what our bot is doing
             // Renderer.Text2D(Action != null ? Action.ToString() : "", new Vec3(10, 10), 3, Color.White);
 
-            if (Action != null)
-            {
-                return;
-            }
+            // if (Action != null)
+            // {
+            //     return;
+            // }
 
             // Kickoff
             if (IsKickoff && IsClosestKickoff(Me) && Action == null)
             {
                 Action = new Kickoff();
-                return;
             }
             else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
             {
@@ -73,47 +67,70 @@ namespace Bot
             {
                 Vec3 DesiredZone = Zone5Positioning();
 
-                Action = new Drive(Me, DesiredZone, interruptible: false, wasteBoost: true);
-                return;
+                Action = new Drive(Me, DesiredZone);
             }
 
-            if (IsSecondClosest() && AreNoBotsBack() && Action == null)
+            if (IsInFrontOfBall() && AreNoBotsBack() && Action == null)
             {
-                Action = new Drive(Me, OurGoal.Location, wasteBoost: true);
-                return;
+                Vec3 location3 = new Vec3(800 * -MathF.Sign(Ball.Location.x), 4900 * Field.Side(Team));
+
+                Action = new Drive(Me, location3, wasteBoost: true);
             }
 
             // Boost grabbing
-            if (Me.Boost < 30 && IsSecondClosest() && !ShouldDefend() && GetClosestOpponent().Location.Dist(Ball.Location) >= 700 && Action == null)
+            if (Me.Boost < 30 && IsSecondClosest() && Action == null)
             {
-                Action = new GetBoost(Me);
-                return;
+                Boost TargetBoost = GetBestBoost();
+                if (TargetBoost != null)
+                {
+                    Action = new Drive(Me, TargetBoost.Location);
+                }
             }
 
             // Attack
-            if (ShouldAttack() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
+            if (ShouldAttack() && IsSecondClosest() && GetClosestOpponent().Location.Dist(Ball.Location) > GetClosestTeammate().Location.Dist(Ball.Location) && Action == null)
             {
-                // search for the first avaliable shot using DefaultShotCheck
+                Action = new GetBoost(Me);
+            }
+
+            if (ShouldAttack() && IsClosest(Me, true) && Action == null
+                || (ShouldAttack() && IsClosest(Me, true) && (Action is Drive && Action.Interruptible || Action == null)))
+            {
                 Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
 
-                // if a shot is found, go for the shot. Otherwise pass to the closest teammate
                 Action = shot ?? Action ?? null;
             }
 
-            else if (ShouldAttack() && IsSecondClosest() && (Ball.LatestTouch.Team != Team) && Action == null)
+            if (ShouldAttack() && IsSecondClosest() && (Action is Drive && Action.Interruptible || Action == null))
             {
-                Action = new GetBoost(Me);
-                return;
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+
+                Action = shot ?? Action ?? null;
             }
 
-            if (IsBack() && ShouldDefend() && IsClosest(Me, true) && Action == null)
+            if (AreNoBotsBack() && IsSecondClosest() && Action == null)
+            {
+                Vec3 location3 = new Vec3(800 * -MathF.Sign(Ball.Location.x), 4900 * Field.Side(Team));
+
+                Action = new Drive(Me, location3);
+            }
+
+            // Defense
+            if (IsBack() && ShouldDefend() && IsClosest(Me, true) && Action == null
+                || (ShouldDefend() && IsClosest(Me, true) && (Action is Drive && Action.Interruptible || Action == null)))
             {
                 Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
 
                 Action = shot ?? Action ?? null;
             }
 
-            // Defence
+            if (ShouldDefend() && IsSecondClosest() && Action == null)
+            {
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
+
+                Action = shot ?? Action ?? null;
+            }
+
             // if (ShouldDefend() && IsClosest(Me, true) && (Action is Drive || Action is GetBoost) && Action.Interruptible)
             // {
             //     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal.Crossbar, GetClosestTeammate().Location));
@@ -121,20 +138,12 @@ namespace Bot
             //     Action = shot ?? Action ?? null;
             // }
 
-            else if (IsSecondClosest() && (Ball.LatestTouch.Team == Team) && Action == null)
-            {
-                // Vec3 location3 = new Vec3((float)(800 * -MathF.Sign(Ball.Location.x)), (float)(4900 * Field.Side(this.Team)));
+            //else if (Action == null)
+            //{
+            //    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
 
-                Action = new ParkAt(Me, OurGoal.Location);
-                return;
-            }
-
-            else if (Action == null)
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-
-                Action = shot ?? Action ?? null;
-            }
+            //    Action = shot ?? Action ?? null;
+            //}
         }
 
         public bool CanBlock(Car car, Vec3 location) => (double)car.Location.Direction(location).Dot(Ball.Location.Direction(car.Location)) > 0.699999988079071;
