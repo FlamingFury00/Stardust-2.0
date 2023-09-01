@@ -42,10 +42,10 @@ namespace RedUtils
 				MathF.Atan2(localUp.y, localUp.z) // Angle to roll upright
 			};
             // Now that we have the angles we need to rotate, we feed them into the PD loops to determine the controller inputs
-            Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.015f) * (backwards ? -1 : 1);
-            Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.25f);
-            Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.151f);
-            Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.251f);
+            Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
+            Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.2f);
+            Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.15f);
+            Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.25f);
 
             return targetAngles; // Returns the angles, which could be useful for other purposes
         }
@@ -53,7 +53,7 @@ namespace RedUtils
         /// <summary>A Proportional-Derivative control loop used for the "AimAt" function</summary>
         private static float SteerPD(float angle, float rate)
         {
-            return Utils.Cap(MathF.Pow(30 * (angle + rate), 3) / 10, -1f, 1f);
+            return Utils.Cap(MathF.Pow(35 * (angle + rate), 3) / 10, -1f, 1f);
         }
 
         /// <summary>Searches through the ball prediction for the first valid shot given by the ShotCheck</summary>

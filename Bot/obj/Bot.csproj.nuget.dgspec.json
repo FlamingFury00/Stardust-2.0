@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj": {}
+    "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj": {}
   },
   "projects": {
-    "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj": {
+    "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj",
+        "projectUniqueName": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj",
         "projectName": "Bot",
-        "projectPath": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj",
+        "projectPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\Bot.csproj",
         "packagesPath": "C:\\Users\\manue\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\obj\\",
+        "outputPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\Bot\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\manue\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -28,8 +28,8 @@
           "net6.0": {
             "targetAlias": "net6.0",
             "projectReferences": {
-              "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {
-                "projectPath": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj"
+              "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {
+                "projectPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj"
               }
             }
           }
@@ -69,14 +69,14 @@
         }
       }
     },
-    "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {
+    "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
+        "projectUniqueName": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
         "projectName": "RedUtils",
-        "projectPath": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
+        "projectPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
         "packagesPath": "C:\\Users\\manue\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\obj\\",
+        "outputPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\manue\\AppData\\Roaming\\NuGet\\NuGet.Config",
