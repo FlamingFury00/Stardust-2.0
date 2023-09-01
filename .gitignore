@@ -9,7 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
-build/
+# build/
 develop-eggs/
 dist/
 downloads/
@@ -105,7 +105,7 @@ ENV/
 /.idea
 
 # Build output
-/build
+# /build
 
 # Gradle files
 /.gradle
@@ -124,16 +124,16 @@ ENV/
 *.userprefs
 
 # Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
+# [Dd]ebug/
+# [Dd]ebugPublic/
+# [Rr]elease/
+# [Rr]eleases/
+# x64/
+# x86/
+# bld/
+# [Bb]in/
+# [Oo]bj/
+# [Ll]og/
 
 # Visual Studio 2015 cache/options directory
 .vs/

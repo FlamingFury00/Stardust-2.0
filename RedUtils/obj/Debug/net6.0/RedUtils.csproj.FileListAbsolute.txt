@@ -1,0 +1,12 @@
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\bin\Debug\net6.0\RedUtils.deps.json
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\bin\Debug\net6.0\RedUtils.dll
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\bin\Debug\net6.0\RedUtils.pdb
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.csproj.AssemblyReference.cache
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.AssemblyInfoInputs.cache
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.AssemblyInfo.cs
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.csproj.CoreCompileInputs.cache
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.dll
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\refint\RedUtils.dll
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\RedUtils.pdb
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Debug\net6.0\ref\RedUtils.dll
