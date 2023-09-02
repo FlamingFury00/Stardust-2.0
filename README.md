@@ -22,4 +22,4 @@ I plan to add/change a lot of things in the future and maybe rewrite it complete
 
 ## MILESTONES
 
-**It placed *fourth* in the RLBot Championship 2023**
+- **It placed *fourth* in the RLBot Championship 2023**
