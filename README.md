@@ -1,4 +1,4 @@
-# Stardust RLBot: Rocket League AI Bot
+# Stardust RLBot: Rocket League Bot
 
 Welcome to the repository for Stardust, an advanced Rocket League bot built on the [RLBot](http://www.rlbot.org/) framework. Stardust is designed to compete in offline Rocket League matches and aims to provide a challenging experience for players.
 
