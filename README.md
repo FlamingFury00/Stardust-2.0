@@ -11,6 +11,8 @@ This repository is related to [RLBot](http://www.rlbot.org/), a framework for ru
 
 # Stardust version 2.0
 
+![Stardust Logo](./logo.png)
+
 This is the second version of my bot, this time it uses RedUtils (C#). It has only 2s/3s logic for now, i will add 1s logic in the future. 
 This is still bad since i rewrite it in two weeks for the **RLBot Championship finals**!
 
