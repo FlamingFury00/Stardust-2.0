@@ -17,3 +17,9 @@ This is still bad since i rewrite it in two weeks for the **RLBot Championship f
 ---
 
 I plan to add/change a lot of things in the future and maybe rewrite it completely. *This is a starting point*.
+
+---
+
+## MILESTONES
+
+- **It placed *fourth* in the RLBot Championship 2023**
