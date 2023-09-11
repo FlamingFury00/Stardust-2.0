@@ -24,6 +24,6 @@ This bot serves as a foundational project, and extensive updates are planned for
 
 ## Achievements
 
-- **RLBot Championship 2023**: Stardust secured a commendable *fourth* place. Watch the final [here](https://youtu.be/6A8_6RR4vR0).
+- **RLBot Championship 2023**: Stardust secured a commendable *fourth* place. Watch the final [here](https://www.youtube.com/watch?v=6A8_6RR4vR0&t=305s).
 
 ---
