@@ -6,6 +6,7 @@ C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtil
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.AssemblyInfoInputs.cache
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.AssemblyInfo.cs
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.csproj.CoreCompileInputs.cache
+C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.sourcelink.json
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.dll
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\refint\RedUtils.dll
 C:\Users\manue\Desktop\Progetti\Stardust-2.0\RedUtils\obj\Release\net6.0\RedUtils.pdb

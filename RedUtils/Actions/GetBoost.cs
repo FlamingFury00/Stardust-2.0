@@ -37,7 +37,7 @@ namespace RedUtils
 				// Loop through all large boost pads, and finds the one we can get to soonest
 				foreach (Boost boost in Field.Boosts)
 				{
-					if (!boost.IsLarge && !boost.IsActive)
+					if (!boost.IsLarge)
 						continue;
 
 					// Calculates how long it will take to get the boost
