@@ -11,12 +11,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("RedUtils")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("Bot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+395e823d355c7404bbea88a92807e15e700a7095")]
-[assembly: System.Reflection.AssemblyProductAttribute("RedUtils")]
-[assembly: System.Reflection.AssemblyTitleAttribute("RedUtils")]
+[assembly: System.Reflection.AssemblyProductAttribute("Bot")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Bot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
 // Generato dalla classe WriteCodeFragment di MSBuild.
