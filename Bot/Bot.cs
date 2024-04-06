@@ -52,7 +52,7 @@ namespace Bot
             {
                 HandleKickoff();
             }
-            else if (Action == null || (Action is ParkAt || Action is Drive) && Action.Interruptible)
+            else if (Action == null || (Action is ParkAt) && Action.Interruptible)
             {
                 HandleGameplay();
             }
@@ -108,7 +108,7 @@ namespace Bot
 
             Shot shot = FindShot(ImprovedShotCheck, new Target(TheirGoal));
 
-            if (shot != null && GetClosestTeammate().IsGrounded || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
+            if (shot != null && GetClosestTeammate().IsGrounded && IsClosest(Me, true) || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
             {
                 Action = shot;
             }
@@ -238,7 +238,7 @@ namespace Bot
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void HandleControlRotation()
         {
-            if ((IsClosest(Me, true) && GetClosestTeammate().IsGrounded) || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
+            if (IsClosest(Me, true) && GetClosestTeammate().IsGrounded || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
             {
                 Shot shot = FindShot(ImprovedShotCheck, new Target(TheirGoal));
                 Action = shot ?? Action ?? new ParkAt(Me, OurGoal.Location);
