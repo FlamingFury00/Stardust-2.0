@@ -78,7 +78,7 @@ namespace RedUtils
                 float timeRemaining = slice.Time - Game.Time;
                 Ball ballAfterHit = slice.ToBall();
                 Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-                ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.75f;
+                ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.7f;
                 Vec3 shotTarget = target.Clamp(ballAfterHit);
 
                 AerialShot aerialShot = new AerialShot(Me, slice, shotTarget);

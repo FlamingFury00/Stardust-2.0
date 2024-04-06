@@ -52,7 +52,7 @@ namespace Bot
             {
                 HandleKickoff();
             }
-            else if (Action == null || (Action is Shadow) && Action.Interruptible)
+            else if (Action == null || (Action is ParkAt || Action is Drive) && Action.Interruptible)
             {
                 HandleGameplay();
             }
@@ -108,7 +108,7 @@ namespace Bot
 
             Shot shot = FindShot(ImprovedShotCheck, new Target(TheirGoal));
 
-            if (shot != null && GetClosestTeammate().IsGrounded)
+            if (shot != null && GetClosestTeammate().IsGrounded || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
             {
                 Action = shot;
             }
@@ -150,7 +150,7 @@ namespace Bot
                     HandleOffensiveRotation();
                     break;
                 case Playstyle.Defensive:
-                    Console.WriteLine("We're WINNING! LET'S DEFENDE (but don't forget to attack)");
+                    Console.WriteLine("We're WINNING! LET'S DEFEND (but don't forget to attack)");
                     HandleDefensiveRotation();
                     break;
                 case Playstyle.Control:
@@ -162,14 +162,15 @@ namespace Bot
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void HandleOffensiveRotation()
         {
-            if (IsClosest(Me, true) && GetClosestTeammate().IsGrounded)
+            if (IsClosest(Me, true) && GetClosestTeammate().IsGrounded || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
             {
                 Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
                 Action = shot ?? Action ?? null;
             }
             else if (IsSecondClosest(Me))
             {
-                Action = new Drive(Me, GetOffensiveSupportPosition());
+                //Action = new Drive(Me, GetOffensiveSupportPosition());
+                Action = new Drive(Me, Zone5Positioning());
             }
             else
             {
@@ -206,7 +207,8 @@ namespace Bot
             }
             else if (IsSecondClosest(Me))
             {
-                Action = new Drive(Me, GetDefensiveSupportPosition());
+                //Action = new Drive(Me, GetDefensiveSupportPosition());
+                Action = new Drive(Me, Zone5Positioning());
             }
             else
             {
@@ -236,20 +238,20 @@ namespace Bot
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void HandleControlRotation()
         {
-            if (IsClosest(Me, true) && GetClosestTeammate().IsGrounded)
+            if ((IsClosest(Me, true) && GetClosestTeammate().IsGrounded) || Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team)
             {
-                Shot shot = FindShot(ImprovedShotCheck, new Target(TheirGoal, true));
-                Action = shot ?? Action ?? null;
+                Shot shot = FindShot(ImprovedShotCheck, new Target(TheirGoal));
+                Action = shot ?? Action ?? new ParkAt(Me, OurGoal.Location);
             }
             else if (IsSecondClosest(Me))
             {
                 //Action = new Drive(Me, GetControlSupportPosition());
-                Action = new Shadow(Me);
+                Action = new Drive(Me, Zone5Positioning());
             }
             else
             {
                 Boost boost = GetBestBoost();
-                if (boost != null)
+                if (boost != null && !ShouldDefend())
                     Action = new Drive(Me, boost.Location, allowDodges: false);
             }
         }
@@ -278,7 +280,7 @@ namespace Bot
                 float timeRemaining = slice.Time - Game.Time;
                 Ball ballAfterHit = slice.ToBall();
                 Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-                ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.75f;
+                ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.8f;
                 Vec3 shotTarget = target.Clamp(ballAfterHit);
 
                 float shotScore = EvaluateShotQuality(slice, shotTarget);
@@ -401,7 +403,7 @@ namespace Bot
                 float angle = (float)System.Math.Acos(botDirection.Dot(botToBoost));
 
                 // Prioritize boost collection based on the bot's role
-                float roleFactor = IsClosest(Me, true) ? 0.5f : 1.0f;
+                float roleFactor = IsSecondClosest(Me) ? 0.5f : 1.0f;
 
                 float score = distanceToBoost + distanceBoostToBall + angle * 100 * roleFactor;
 
