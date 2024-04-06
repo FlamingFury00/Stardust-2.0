@@ -52,7 +52,7 @@ namespace Bot
             {
                 HandleKickoff();
             }
-            else if (Action == null || (Action is ParkAt) && Action.Interruptible)
+            else if (Action == null || (Action is ParkAt || Action is Drive) && Action.Interruptible)
             {
                 HandleGameplay();
             }
