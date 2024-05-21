@@ -78,24 +78,32 @@ namespace RedUtils
                 float timeRemaining = slice.Time - Game.Time;
                 Ball ballAfterHit = slice.ToBall();
                 Vec3 carFinVel = ((slice.Location - Me.Location) / timeRemaining).Cap(0, Car.MaxSpeed);
-                ballAfterHit.velocity = carFinVel + slice.Velocity.Flatten(carFinVel.Normalize()) * 0.7f;
+                ballAfterHit.velocity = carFinVel + (slice.Velocity.Flatten(carFinVel.Normalize()) * 0.7f);
                 Vec3 shotTarget = target.Clamp(ballAfterHit);
 
-                AerialShot aerialShot = new AerialShot(Me, slice, shotTarget);
+                AerialShot aerialShot = new(Me, slice, shotTarget);
                 if (aerialShot.IsValid(Me))
+                {
                     return aerialShot;
+                }
 
-                GroundShot groundShot = new GroundShot(Me, slice, shotTarget);
-                if (groundShot.IsValid(Me))
-                    return groundShot;
-
-                JumpShot jumpShot = new JumpShot(Me, slice, shotTarget);
-                if (jumpShot.IsValid(Me))
-                    return jumpShot;
-
-                DoubleJumpShot doubleJumpShot = new DoubleJumpShot(Me, slice, shotTarget);
+                DoubleJumpShot doubleJumpShot = new(Me, slice, shotTarget);
                 if (doubleJumpShot.IsValid(Me))
+                {
                     return doubleJumpShot;
+                }
+
+                JumpShot jumpShot = new(Me, slice, shotTarget);
+                if (jumpShot.IsValid(Me))
+                {
+                    return jumpShot;
+                }
+
+                GroundShot groundShot = new(Me, slice, shotTarget);
+                if (groundShot.IsValid(Me))
+                {
+                    return groundShot;
+                }
             }
 
             return null;
@@ -213,7 +221,7 @@ namespace RedUtils
 
         public Tuple<bool, int> DemoRotation()
         {
-            List<Car> possibleCars = new List<Car>();
+            List<Car> possibleCars = new();
             foreach (Car car in Opponents)
             {
                 if (car.Location.y * Field.Side(Team) < -4000)
@@ -223,7 +231,7 @@ namespace RedUtils
                     float velocityNeeded = 2200 - velocity;
                     float timeBoostingRequired = velocityNeeded / 991.666f;
                     float boostRequired = 33.3f * timeBoostingRequired;
-                    float distanceRequired = velocity * timeBoostingRequired + 0.5f * 991.666f * (timeBoostingRequired * timeBoostingRequired);
+                    float distanceRequired = (velocity * timeBoostingRequired) + (0.5f * 991.666f * (timeBoostingRequired * timeBoostingRequired));
 
                     if (velocity < 2200)
                     {
@@ -281,23 +289,13 @@ namespace RedUtils
                 return false;
             }
 
-            if (DemoRotation().Item1 && !IsAheadOfBall())
-            {
-                return false;
-            }
-
-            if (FriendsAheadOfBall() == 0 && !IsAheadOfBall())
-            {
-                return false;
-            }
-
-            return true;
+            return (!DemoRotation().Item1 || IsAheadOfBall()) && (FriendsAheadOfBall() != 0 || IsAheadOfBall());
         }
 
         public Vec3 Zone5Positioning()
         {
             float ballY = Ball.Location.y;
-            float dY = ballY + 1707 * Field.Side(Team);
+            float dY = ballY + (1707 * Field.Side(Team));
             return new Vec3(0, 2 * dY / 3, 0);
         }
 
@@ -305,11 +303,7 @@ namespace RedUtils
         {
             double meToGoal = (Me.Location - TheirGoal.Location).Length();
             double ballToGoal = (Ball.Location - TheirGoal.Location).Length();
-            if (meToGoal > 1000 && meToGoal < ballToGoal)
-            {
-                return true;
-            }
-            return false;
+            return meToGoal > 1000 && meToGoal < ballToGoal;
         }
 
         public bool AreNoBotsBack()
@@ -335,7 +329,7 @@ namespace RedUtils
                 return true;
             }
 
-            bool aheadCounts = teamOnly && AreNoBotsBack() ? true : false;
+            bool aheadCounts = teamOnly && AreNoBotsBack();
 
             if (IsAheadOfBall() && !aheadCounts)
             {
@@ -350,12 +344,12 @@ namespace RedUtils
             float ownDistance;
             if (teamOnly)
             {
-                Vec3 biasedDistanceVector = new Vec3(2 * actualDistanceVector.x, factor * actualDistanceVector.y, actualDistanceVector.z);
+                Vec3 biasedDistanceVector = new(2 * actualDistanceVector.x, factor * actualDistanceVector.y, actualDistanceVector.z);
                 ownDistance = biasedDistanceVector.Length() - (10 * ownCar.Boost);
             }
             else
             {
-                ownDistance = (ownCar.Location - Ball.Location).Length() * factor - (10 * ownCar.Boost);
+                ownDistance = ((ownCar.Location - Ball.Location).Length() * factor) - (10 * ownCar.Boost);
             }
 
             if (!teamOnly)
@@ -367,7 +361,7 @@ namespace RedUtils
                     {
                         factor = 5;
                     }
-                    float otherDistance = (car.Location - Ball.Location).Length() * factor - (10 * car.Boost);
+                    float otherDistance = ((car.Location - Ball.Location).Length() * factor) - (10 * car.Boost);
                     if (otherDistance < ownDistance)
                     {
                         return false;
@@ -391,12 +385,12 @@ namespace RedUtils
                 if (teamOnly)
                 {
                     Vec3 otherActualDistanceVector = car.Location - Ball.Location;
-                    Vec3 otherBiasedDistanceVector = new Vec3(2 * otherActualDistanceVector.x, factor * otherActualDistanceVector.y, otherActualDistanceVector.z);
+                    Vec3 otherBiasedDistanceVector = new(2 * otherActualDistanceVector.x, factor * otherActualDistanceVector.y, otherActualDistanceVector.z);
                     otherDistance = otherBiasedDistanceVector.Length() - (10 * car.Boost);
                 }
                 else
                 {
-                    otherDistance = (car.Location - Ball.Location).Length() * factor - (10 * car.Boost);
+                    otherDistance = ((car.Location - Ball.Location).Length() * factor) - (10 * car.Boost);
                 }
 
                 if (IsAheadOfBall2(car.Location, Team) && !aheadCounts)
@@ -433,7 +427,7 @@ namespace RedUtils
             }
 
             Vec3 actualDistanceVector = Me.Location - Ball.Location;
-            Vec3 biasedDistanceVector = new Vec3(
+            Vec3 biasedDistanceVector = new(
                 2 * actualDistanceVector.x,
                 factor * actualDistanceVector.y,
                 actualDistanceVector.z
@@ -465,7 +459,7 @@ namespace RedUtils
                 }
 
                 Vec3 otherActualDistanceVector = car.Location - Ball.Location;
-                Vec3 otherBiasedDistanceVector = new Vec3(
+                Vec3 otherBiasedDistanceVector = new(
                     2 * otherActualDistanceVector.x,
                     factor * otherActualDistanceVector.y,
                     otherActualDistanceVector.z
@@ -494,22 +488,12 @@ namespace RedUtils
 
         public bool ShouldAttack()
         {
-            if (Ball.Location.y * Field.Side(Team) <= 0)
-            {
-                return true;
-            }
-
-            return false;
+            return Ball.Location.y * Field.Side(Team) <= 0;
         }
 
         public bool ShouldDefend()
         {
-            if (Ball.Location.y * Field.Side(Team) > 0)
-            {
-                return true;
-            }
-
-            return false;
+            return Ball.Location.y * Field.Side(Team) > 0;
         }
 
         public Car GetClosestTeammate()
@@ -557,22 +541,22 @@ namespace RedUtils
             List<Boost> availableBoosts = Field.Boosts.FindAll(boost =>
                 boost.IsLarge &&
                 boost.IsActive &&
-                (boost.Location.Dist(OurGoal.Location)) < Ball.Location.Dist(OurGoal.Location) &&
-                (Opponents[0].Location.Dist(Ball.Location)) > (Me.Location.Dist(Ball.Location)) &&
+                boost.Location.Dist(OurGoal.Location) < Ball.Location.Dist(OurGoal.Location) &&
+                Opponents[0].Location.Dist(Ball.Location) > Me.Location.Dist(Ball.Location) &&
                 Opponents[0].Location.Length() > 1000
             );
 
-            foreach (var boost in availableBoosts)
+            foreach (Boost boost in availableBoosts)
             {
                 Vec3 boostToBall = (Ball.Location - boost.Location).Normalize();
                 Vec3 botToBoost = (boost.Location - Me.Location).Normalize();
                 Vec3 botDirection = Me.Forward;
 
-                float distanceToBoost = (boost.Location.Dist(Me.Location));
-                float distanceBoostToBall = (boost.Location.Dist(Ball.Location));
+                float distanceToBoost = boost.Location.Dist(Me.Location);
+                float distanceBoostToBall = boost.Location.Dist(Ball.Location);
                 float angle = (float)System.Math.Acos(botDirection.Dot(botToBoost));
 
-                float score = distanceToBoost + distanceBoostToBall + angle * 100;
+                float score = distanceToBoost + distanceBoostToBall + (angle * 100);
 
                 if (score < bestScore)
                 {

@@ -70,7 +70,7 @@ namespace Bot
 
             if ((ShouldDefend() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
             {
-                Shot shot = FindShot(DefaultShotCheck, new Target(OurGoal, true));
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
                 Action = shot ?? GetSupportingDefenseAction();
             }
         }
