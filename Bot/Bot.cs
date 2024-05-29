@@ -1,4 +1,5 @@
 ﻿using RedUtils;
+using RedUtils.Actions;
 using RedUtils.Math;
 using System;
 using System.Runtime.CompilerServices;
@@ -62,9 +63,9 @@ namespace Bot
                 Action = shot ?? GetSupportingAction();
             }
 
-            if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+            if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team != Me.Team && Action == null))
             {
-                Shot shot = FindShot(DefaultShotCheck, new Target(OurGoal, true));
+                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
                 Action = shot ?? GetDefensiveAction();
             }
 
@@ -85,7 +86,7 @@ namespace Bot
             }
 
             return GetClosestOpponent().Location.Dist(Ball.Location) > GetClosestTeammate().Location.Dist(Ball.Location)
-                ? new GetBoost(Me)
+                ? new GetBoost(Me, false)
                 : (IAction)null;
         }
 

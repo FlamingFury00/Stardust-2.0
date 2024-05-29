@@ -87,10 +87,10 @@ namespace RedUtils
                     return aerialShot;
                 }
 
-                DoubleJumpShot doubleJumpShot = new(Me, slice, shotTarget);
-                if (doubleJumpShot.IsValid(Me))
+                GroundShot groundShot = new(Me, slice, shotTarget);
+                if (groundShot.IsValid(Me))
                 {
-                    return doubleJumpShot;
+                    return groundShot;
                 }
 
                 JumpShot jumpShot = new(Me, slice, shotTarget);
@@ -99,11 +99,11 @@ namespace RedUtils
                     return jumpShot;
                 }
 
-                GroundShot groundShot = new(Me, slice, shotTarget);
-                if (groundShot.IsValid(Me))
+                DoubleJumpShot doubleJumpShot = new(Me, slice, shotTarget);
+                if (doubleJumpShot.IsValid(Me))
                 {
-                    return groundShot;
-                }
+                    return doubleJumpShot;
+                }                               
             }
 
             return null;
