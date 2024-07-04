@@ -1,11 +1,12 @@
 ﻿using System;
 using rlbot.flat;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>An object representing one of the two goals on the field</summary>
-	public class Goal
+    /// <summary>An object representing one of the two goals on the field</summary>
+    public class Goal
 	{
 		/// <summary>The total width of the goal, from post to post</summary>
 		public const float Width = 1780;

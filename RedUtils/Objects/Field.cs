@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RedUtils
+namespace RedUtils.Objects
 {
     /// <summary>Contains static properties related to the field, like boost pads, goals, etc</summary>
     public static class Field
@@ -40,47 +40,47 @@ namespace RedUtils
 
         static Field()
         {
-            Goals = new Goal[] { new Goal(0), new Goal(1) };
+            Goals = new Goal[] { new(0), new(1) };
             Boosts = new List<Boost>();
 
             Surfaces = new Dictionary<string, Surface>
             {
                 { "Ground", new Surface("Ground", new Vec3(0, 0, 0), Vec3.Up, new Vec3(Width, Length), Vec3.X, Vec3.Y) },
                 { "Ceiling", new Surface("Ceiling", new Vec3(0, 0, Height), -Vec3.Up, new Vec3(Width, Length), Vec3.X, Vec3.Y) },
-                { "Orange Backboard", new Surface("Orange Backboard", new Vec3(0, Length / 2, Height / 2 + Goal.Height / 2), new Vec3(0, -1, 0), new Vec3(Goal.Width, Height - Goal.Height), Vec3.X, Vec3.Z) },
-                { "Orange Right Backwall", new Surface("Orange Right Backwall", new Vec3(Width / 4 + Goal.Width / 2 - CornerWidth + 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
-                { "Orange Left Backwall", new Surface("Orange Left Backwall", new Vec3(-Width / 4 - Goal.Width / 2 + CornerWidth - 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
-                { "Blue Backboard", new Surface("Blue Backboard", new Vec3(0, -Length / 2, Height / 2 + Goal.Height / 2), new Vec3(0, 1, 0), new Vec3(Goal.Width, Height - Goal.Height), Vec3.X, Vec3.Z) },
-                { "Blue Right Backwall", new Surface("Blue Right Backwall", new Vec3(-Width / 4 - Goal.Width / 2 + CornerWidth - 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
-                { "Blue Left Backwall", new Surface("Blue Left Backwall", new Vec3(Width / 4 + Goal.Width / 2 - CornerWidth + 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
+                { "Orange Backboard", new Surface("Orange Backboard", new Vec3(0, Length / 2, (Height / 2) + (Goal.Height / 2)), new Vec3(0, -1, 0), new Vec3(Goal.Width, Height - Goal.Height), Vec3.X, Vec3.Z) },
+                { "Orange Right Backwall", new Surface("Orange Right Backwall", new Vec3((Width / 4) + (Goal.Width / 2) - CornerWidth + 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3((Width / 2) - (Goal.Width / 2) - CornerWidth, Height), Vec3.X, Vec3.Z) },
+                { "Orange Left Backwall", new Surface("Orange Left Backwall", new Vec3((-Width / 4) - (Goal.Width / 2) + CornerWidth - 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3((Width / 2) - (Goal.Width / 2) - CornerWidth, Height), Vec3.X, Vec3.Z) },
+                { "Blue Backboard", new Surface("Blue Backboard", new Vec3(0, -Length / 2, (Height / 2) + (Goal.Height / 2)), new Vec3(0, 1, 0), new Vec3(Goal.Width, Height - Goal.Height), Vec3.X, Vec3.Z) },
+                { "Blue Right Backwall", new Surface("Blue Right Backwall", new Vec3((-Width / 4) - (Goal.Width / 2) + CornerWidth - 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3((Width / 2) - (Goal.Width / 2) - CornerWidth, Height), Vec3.X, Vec3.Z) },
+                { "Blue Left Backwall", new Surface("Blue Left Backwall", new Vec3((Width / 4) + (Goal.Width / 2) - CornerWidth + 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3((Width / 2) - (Goal.Width / 2) - CornerWidth, Height), Vec3.X, Vec3.Z) },
                 { "Right Orange Sidewall", new Surface("Right Orange Sidewall", new Vec3(Width / 2, 0, Height / 2), new Vec3(-1, 0, 0), new Vec3(Height, Length), Vec3.Z, Vec3.Y) },
                 { "Right Blue Sidewall", new Surface("Right Blue Sidewall", new Vec3(-Width / 2, 0, Height / 2), new Vec3(1, 0, 0), new Vec3(Height, Length), Vec3.Z, Vec3.Y) },
                 {
                     "Right Orange Corner",
-                    new Surface("Right Orange Corner",new Vec3(Width / 2 - CornerWidth / 2, Length / 2 - CornerWidth / 2, Height / 2), new Vec3(-MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0),
+                    new Surface("Right Orange Corner",new Vec3((Width / 2) - (CornerWidth / 2), (Length / 2) - (CornerWidth / 2), Height / 2), new Vec3(-MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0),
                 new Vec3(CornerLength, Height), new Vec3(-MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0), Vec3.Z)
                 },
                 {
                     "Left Orange Corner",
-                    new Surface("Left Orange Corner", new Vec3(-Width / 2 + CornerWidth / 2, Length / 2 - CornerWidth / 2, Height / 2), new Vec3(MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0),
+                    new Surface("Left Orange Corner", new Vec3((-Width / 2) + (CornerWidth / 2), (Length / 2) - (CornerWidth / 2), Height / 2), new Vec3(MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0),
                 new Vec3(CornerLength, Height), new Vec3(MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0), Vec3.Z)
                 },
                 {
                     "Right Blue Corner",
-                    new Surface("Right Blue Corner", new Vec3(-Width / 2 + CornerWidth / 2, -Length / 2 + CornerWidth / 2, Height / 2), new Vec3(MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0),
+                    new Surface("Right Blue Corner", new Vec3((-Width / 2) + (CornerWidth / 2), (-Length / 2) + (CornerWidth / 2), Height / 2), new Vec3(MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0),
                 new Vec3(CornerLength, Height), new Vec3(MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0), Vec3.Z)
                 },
                 {
                     "Left Blue Corner",
-                    new Surface("Left Blue Corner", new Vec3(Width / 2 - CornerWidth / 2, -Length / 2 + CornerWidth / 2, Height / 2), new Vec3(-MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0),
+                    new Surface("Left Blue Corner", new Vec3((Width / 2) - (CornerWidth / 2), (-Length / 2) + (CornerWidth / 2), Height / 2), new Vec3(-MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0),
                 new Vec3(CornerLength, Height), new Vec3(-MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0), Vec3.Z)
                 },
-                { "Orange Goal Ground", new Surface("Orange Goal Ground", new Vec3(0, Length / 2 + Goal.Depth / 2, 0), Vec3.Up, new Vec3(Goal.Width, Goal.Depth), Vec3.X, Vec3.Y) },
-                { "Blue Goal Ground", new Surface("Blue Goal Ground", new Vec3(0, -Length / 2 - Goal.Depth / 2, 0), Vec3.Up, new Vec3(Goal.Width, Goal.Depth), Vec3.X, Vec3.Y) }
+                { "Orange Goal Ground", new Surface("Orange Goal Ground", new Vec3(0, (Length / 2) + (Goal.Depth / 2), 0), Vec3.Up, new Vec3(Goal.Width, Goal.Depth), Vec3.X, Vec3.Y) },
+                { "Blue Goal Ground", new Surface("Blue Goal Ground", new Vec3(0, (-Length / 2) - (Goal.Depth / 2), 0), Vec3.Up, new Vec3(Goal.Width, Goal.Depth), Vec3.X, Vec3.Y) }
             };
 
             DrivableSurfaces = new Dictionary<string, Surface>(Surfaces);
-            DrivableSurfaces.Remove("Ceiling");
+            _ = DrivableSurfaces.Remove("Ceiling");
         }
 
         /// <summary>Initializes the boost pads with data from the FieldInfo struct, provided by our bot</summary>
@@ -115,7 +115,7 @@ namespace RedUtils
         /// <summary>Returns the side of the field which belongs to the team given. (-1 for blue, 1 for orange)</summary>
         public static int Side(int team)
         {
-            return 2 * team - 1;
+            return (2 * team) - 1;
         }
 
         /// <summary>Whether or not a sphere resides within the field</summary>
@@ -124,23 +124,13 @@ namespace RedUtils
         public static bool InField(Vec3 pos, float radius)
         {
             Vec3 point = Vec3.Abs(pos);
-            if (point.x > Width / 2 - radius)
+            if (point.x > (Width / 2) - radius)
             {
                 return false;
             }
-            if (point.y > Length / 2 + Goal.Depth - radius)
-            {
-                return false;
-            }
-            if ((point.x > Goal.Width / 2 - radius || point.z > Goal.Height - radius) && point.y > Length / 2 - radius)
-            {
-                return false;
-            }
-            if (point.x + point.y > CornerIntersection - radius)
-            {
-                return false;
-            }
-            return true;
+            return point.y <= (Length / 2) + Goal.Depth - radius
+&& ((point.x <= (Goal.Width / 2) - radius && point.z <= Goal.Height - radius) || point.y <= (Length / 2) - radius)
+&& point.x + point.y <= CornerIntersection - radius;
         }
 
         /// <summary>Whether or not any part of a sphere resides within a goal</summary>
@@ -150,7 +140,7 @@ namespace RedUtils
         {
             Vec3 point = Vec3.Abs(pos);
 
-            return point.x < Goal.Width / 2 + radius && point.y > Length / 2 - radius && point.y < Length / 2 + Goal.Depth + radius && point.z < Goal.Height + radius;
+            return point.x < (Goal.Width / 2) + radius && point.y > (Length / 2) - radius && point.y < (Length / 2) + Goal.Depth + radius && point.z < Goal.Height + radius;
         }
 
         /// <summary>Returns the closest drivable surface to a given point 
@@ -174,8 +164,11 @@ namespace RedUtils
         /// <param name="excludedSurfaces">A list of surfacaes you don't want to check</param>
         public static Surface NearestSurface(Vec3 pos, Surface[] excludedSurfaces)
         {
-            List<Surface> filteredSurfaces = new List<Surface>(Surfaces.Values);
-            foreach (Surface surface in excludedSurfaces) filteredSurfaces.Remove(surface);
+            List<Surface> filteredSurfaces = new(Surfaces.Values);
+            foreach (Surface surface in excludedSurfaces)
+            {
+                _ = filteredSurfaces.Remove(surface);
+            }
 
             Surface closestSurface = filteredSurfaces.First();
             foreach (Surface surface in filteredSurfaces)
@@ -193,7 +186,9 @@ namespace RedUtils
         public static Surface FindLandingSurface(Car car)
         {
             if (car.IsGrounded)
+            {
                 return NearestSurface(car.Location, Array.Empty<Surface>()); // If the car is already on the ground, return the nearest surface
+            }
 
             // How much time before the car lands on the ground
             float groundLandingTime = Utils.Quadratic(Game.Gravity.z / 2, car.Velocity.z, car.Location.z - 15)[1];
@@ -212,7 +207,9 @@ namespace RedUtils
                 {
                     // Loop through every drivable surface, except for the ground (we already accounted for that)
                     if (surface.Key == "Ground")
+                    {
                         continue;
+                    }
 
                     // Calculate how much time until we land on the surface
                     float surfaceLandingTime = car.Location.Dist(surface.Limit(car.Location)) / car.Velocity.Dot(-surface.Normal);
@@ -296,7 +293,7 @@ namespace RedUtils
         {
             Vec3 posToSurace = pos - Location;
 
-            return Location + Xdirection * Utils.Cap(Xdirection.Dot(posToSurace), -Size.x / 2, Size.x / 2) + Ydirection * Utils.Cap(Ydirection.Dot(posToSurace), -Size.y / 2, Size.y / 2);
+            return Location + (Xdirection * Utils.Cap(Xdirection.Dot(posToSurace), -Size.x / 2, Size.x / 2)) + (Ydirection * Utils.Cap(Ydirection.Dot(posToSurace), -Size.y / 2, Size.y / 2));
         }
     }
 }

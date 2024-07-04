@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Timers;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>A ground shot action, where the car runs into the ball without leaving the ground
-	/// <para>Can also be used for dribbling</para>
-	/// </summary>
-	public class GroundShot : Shot
+    /// <summary>A ground shot action, where the car runs into the ball without leaving the ground
+    /// <para>Can also be used for dribbling</para>
+    /// </summary>
+    public class GroundShot : Shot
 	{
 		/// <summary>Whether or not this shot has finished</summary>
 		public override bool Finished { get; internal set; }

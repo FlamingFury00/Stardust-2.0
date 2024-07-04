@@ -1,10 +1,11 @@
 ﻿using System;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>A wavedash action</summary>
-	public class Wavedash : IAction
+    /// <summary>A wavedash action</summary>
+    public class Wavedash : IAction
 	{
 		/// <summary>Whether or not this action has finished</summary>
 		public bool Finished { get; private set; }

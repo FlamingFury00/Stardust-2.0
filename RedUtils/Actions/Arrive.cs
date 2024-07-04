@@ -1,10 +1,11 @@
 ﻿using System;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>An action meant to drive the car to a certain location, at a certain time and/or facing a certain direction</summary>
-	public class Arrive : IAction
+    /// <summary>An action meant to drive the car to a certain location, at a certain time and/or facing a certain direction</summary>
+    public class Arrive : IAction
 	{
 		/// <summary>If we have arrived, or ran out of time</summary>
 		public bool Finished { get; private set; }

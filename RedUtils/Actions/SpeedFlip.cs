@@ -1,10 +1,11 @@
 using System;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>A speed-flip action, where the car turns slightly, then diagonal dodges and then cancels the dodge for maximum speed</summary>
-	class SpeedFlip : IAction
+    /// <summary>A speed-flip action, where the car turns slightly, then diagonal dodges and then cancels the dodge for maximum speed</summary>
+    class SpeedFlip : IAction
 	{
 		/// <summary>The avergae duration of a speed-flip</summary>
 		public const float Duration = 1.35f;

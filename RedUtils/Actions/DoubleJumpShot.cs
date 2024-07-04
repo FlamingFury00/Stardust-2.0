@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Timers;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>A double jump shot action, where the car double jumps into the ball</summary>
-	public class DoubleJumpShot : Shot
+    /// <summary>A double jump shot action, where the car double jumps into the ball</summary>
+    public class DoubleJumpShot : Shot
 	{
 		/// <summary>Whether or not this shot has finished</summary>
 		public override bool Finished { get; internal set; }

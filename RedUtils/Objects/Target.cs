@@ -1,10 +1,11 @@
 ﻿using System;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>Represents a target to be shot at or away from</summary>
-	public class Target
+    /// <summary>Represents a target to be shot at or away from</summary>
+    public class Target
 	{
 		/// <summary>The minimum room for error for any shot. 
 		/// <para>For example, an error of 0 would mean shots with a very extreme angle, with zero room for error, would be allowed</para>

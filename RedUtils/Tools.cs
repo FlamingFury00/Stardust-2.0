@@ -1,4 +1,5 @@
 ﻿using RedUtils.Math;
+using RedUtils.Objects;
 using RLBotDotNet;
 using System;
 using System.Collections.Generic;
@@ -103,7 +104,7 @@ namespace RedUtils
                 if (doubleJumpShot.IsValid(Me))
                 {
                     return doubleJumpShot;
-                }                               
+                }
             }
 
             return null;
@@ -213,7 +214,7 @@ namespace RedUtils
                    (Me.Location.y < Ball.Location.y - 500 && Team == 1);
         }
 
-        public bool IsAheadOfBall2(Vec3 location, int team)
+        public static bool IsAheadOfBall2(Vec3 location, int team)
         {
             return (location.y > Ball.Location.y + 500 && team == 0) ||
                    (location.y < Ball.Location.y - 500 && team == 1);
@@ -284,12 +285,8 @@ namespace RedUtils
 
         public bool ShouldRotate()
         {
-            if (IsLastOneBack() && !InGoalArea())
-            {
-                return false;
-            }
-
-            return (!DemoRotation().Item1 || IsAheadOfBall()) && (FriendsAheadOfBall() != 0 || IsAheadOfBall());
+            return (!IsLastOneBack() || InGoalArea())
+&& (!DemoRotation().Item1 || IsAheadOfBall()) && (FriendsAheadOfBall() != 0 || IsAheadOfBall());
         }
 
         public Vec3 Zone5Positioning()
@@ -303,7 +300,7 @@ namespace RedUtils
         {
             double meToGoal = (Me.Location - TheirGoal.Location).Length();
             double ballToGoal = (Ball.Location - TheirGoal.Location).Length();
-            return meToGoal > 1000 && meToGoal < ballToGoal;
+            return meToGoal < ballToGoal;
         }
 
         public bool AreNoBotsBack()

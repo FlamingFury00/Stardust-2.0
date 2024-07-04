@@ -5,14 +5,15 @@ using RedUtils.Math;
 using RLBotDotNet;
 using rlbot.flat;
 using Color = System.Drawing.Color;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>The main class in RedUtils. 
-	/// <para>It contains properties that are unique to your bot, such as your bot's car, your teammates, etc.</para>
-	/// <para>It also receives the GameTickPacket from the RLBot framework, and processes all the data in it.</para>
-	/// </summary>
-	public abstract partial class RUBot : Bot
+    /// <summary>The main class in RedUtils. 
+    /// <para>It contains properties that are unique to your bot, such as your bot's car, your teammates, etc.</para>
+    /// <para>It also receives the GameTickPacket from the RLBot framework, and processes all the data in it.</para>
+    /// </summary>
+    public abstract partial class RUBot : Bot
 	{
 		/// <summary>A tool to draw debug lines in-game</summary>
 		public new ExtendedRenderer Renderer { get; internal set; }

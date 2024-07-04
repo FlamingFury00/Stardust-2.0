@@ -1,4 +1,6 @@
-﻿namespace RedUtils.Actions
+﻿using RedUtils.Objects;
+
+namespace RedUtils.Actions
 {
     public class GetBoost : IAction
     {

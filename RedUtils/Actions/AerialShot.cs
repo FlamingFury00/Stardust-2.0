@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Timers;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>An aerial shot action, where the car flys into the ball</summary>
-	public class AerialShot : Shot
+    /// <summary>An aerial shot action, where the car flys into the ball</summary>
+    public class AerialShot : Shot
 	{
 		/// <summary>Whether or not this aerial has finished</summary>
 		public override bool Finished { get; internal set; }

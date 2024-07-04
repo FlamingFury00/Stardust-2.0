@@ -29,7 +29,7 @@ namespace RedUtils
         /// </summary>
         public static float Lerp(float t, float a, float b)
         {
-            return (b - a) * t + a;
+            return ((b - a) * t) + a;
         }
 
         /// <summary>Linerally interpolates between vectors a and b, using value t
@@ -37,7 +37,7 @@ namespace RedUtils
         /// </summary>
         public static Vec3 Lerp(float t, Vec3 a, Vec3 b)
         {
-            return (b - a) * t + a;
+            return ((b - a) * t) + a;
         }
 
         /// <summary>Inverse linerally interpolates between values a and b, using value v
@@ -53,11 +53,7 @@ namespace RedUtils
         public static float[] Quadratic(float a, float b, float c)
         {
             float inside = MathF.Sqrt((b * b) - (4 * a * c));
-            if (a != 0 && !float.IsNaN(inside))
-            {
-                return new float[2] { (-b + inside) / (2 * a), (-b - inside) / (2 * a) };
-            }
-            return new float[2] { -1, -1 };
+            return a != 0 && !float.IsNaN(inside) ? (new float[2] { (-b + inside) / (2 * a), (-b - inside) / (2 * a) }) : (new float[2] { -1, -1 });
         }
 
         /// <summary>Calculates how long it will take to jump a certain height</summary>
@@ -67,21 +63,21 @@ namespace RedUtils
         public static float TimeToJump(Vec3 up, float height, bool doubleJump = false)
         {
             float gravity = up.Dot(Game.Gravity) != 0 ? up.Dot(Game.Gravity) : -0.001f;
-            float heightAfterJump = Car.JumpVel * Car.JumpMaxDuration +
-                Car.JumpAccel * Car.JumpMaxDuration * Car.JumpMaxDuration / 2 -
-                Car.StickyAccel * 0.05f * (Car.JumpMaxDuration - 0.025f) +
-                gravity * Car.JumpMaxDuration * Car.JumpMaxDuration / 2;
+            float heightAfterJump = (Car.JumpVel * Car.JumpMaxDuration) +
+                (Car.JumpAccel * Car.JumpMaxDuration * Car.JumpMaxDuration / 2) -
+                (Car.StickyAccel * 0.05f * (Car.JumpMaxDuration - 0.025f)) +
+                (gravity * Car.JumpMaxDuration * Car.JumpMaxDuration / 2);
             float doubleJumpMultiplier = doubleJump ? 2 : 1;
 
-            float intVelAfterJump = Car.JumpVel * doubleJumpMultiplier - 16.25f + (gravity + Car.JumpAccel) * Car.JumpMaxDuration;
-            float finVelAfterJump = MathF.Sqrt(MathF.Max(MathF.Pow(intVelAfterJump, 2) + 2 * gravity * (height - heightAfterJump), 0));
+            float intVelAfterJump = (Car.JumpVel * doubleJumpMultiplier) - 16.25f + ((gravity + Car.JumpAccel) * Car.JumpMaxDuration);
+            float finVelAfterJump = MathF.Sqrt(MathF.Max(MathF.Pow(intVelAfterJump, 2) + (2 * gravity * (height - heightAfterJump)), 0));
 
             if (height < heightAfterJump)
             {
-                float finVel = MathF.Sqrt(MathF.Max(MathF.Pow(Car.JumpVel - 16.25f, 2) + 2 * (gravity + Car.JumpAccel) * height, 0));
+                float finVel = MathF.Sqrt(MathF.Max(MathF.Pow(Car.JumpVel - 16.25f, 2) + (2 * (gravity + Car.JumpAccel) * height), 0));
                 return (finVel - Car.JumpVel + 16.25f) / (gravity + Car.JumpAccel);
             }
-            return Car.JumpMaxDuration + (finVelAfterJump - intVelAfterJump) / gravity;
+            return Car.JumpMaxDuration + ((finVelAfterJump - intVelAfterJump) / gravity);
         }
 
         /// <summary>Calculates how far the car could rotate given a certain amount of time</summary>
@@ -91,10 +87,10 @@ namespace RedUtils
             {
                 float timeToReachMax = Car.MaxAngularVel / acceleration;
 
-                return (acceleration / 2) * MathF.Pow(timeToReachMax, 2) + Car.MaxAngularVel * (time - timeToReachMax);
+                return (acceleration / 2 * MathF.Pow(timeToReachMax, 2)) + (Car.MaxAngularVel * (time - timeToReachMax));
             }
 
-            return (acceleration / 2) * MathF.Pow(time, 2);
+            return acceleration / 2 * MathF.Pow(time, 2);
         }
 
         public static float ShotPowerModifier(float value)

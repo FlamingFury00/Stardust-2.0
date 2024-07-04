@@ -1,6 +1,7 @@
 ﻿using RedUtils;
 using RedUtils.Actions;
 using RedUtils.Math;
+using RedUtils.Objects;
 using System;
 using System.Runtime.CompilerServices;
 
@@ -23,56 +24,94 @@ namespace Bot
 
         public override void Run()
         {
-            // Kickoff
-            if (IsKickoff && IsClosestKickoff(Me) && Action == null)
+            if (Teammates.Count >= 1)
             {
-                Action = new Kickoff();
-            }
-            else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
-            {
-                return;
-            }
-
-            // Rotation and positioning
-            if (ShouldRotate() && Action == null)
-            {
-                Vec3 desiredZone = Zone5Positioning();
-                Action = new Drive(Me, desiredZone);
-            }
-
-            // Boost grabbing
-            if (Me.Boost < 30 && IsSecondClosest() && Action == null)
-            {
-                Boost targetBoost = GetBestBoost();
-                if (targetBoost != null)
+                // Kickoff
+                if (IsKickoff && IsClosestKickoff(Me) && Action == null)
                 {
-                    Action = new Drive(Me, targetBoost.Location);
+                    Action = new Kickoff();
+                }
+                else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
+                {
+                    return;
+                }
+
+                // Rotation and positioning
+                if (ShouldRotate() && Action == null)
+                {
+                    Vec3 desiredZone = Zone5Positioning();
+                    Action = new Drive(Me, desiredZone);
+                }
+
+                // Boost grabbing
+                if (Me.Boost < 30 && IsSecondClosest() && Action == null)
+                {
+                    Boost targetBoost = GetBestBoost();
+                    if (targetBoost != null)
+                    {
+                        Action = new Drive(Me, targetBoost.Location);
+                    }
+                }
+
+                // Attack
+                if ((ShouldAttack() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                    Action = shot ?? GetOffensiveAction();
+                }
+
+                if ((ShouldAttack() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                    Action = shot ?? GetSupportingAction();
+                }
+
+                if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team != Me.Team && Action == null))
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
+                    Action = shot ?? GetDefensiveAction();
+                }
+
+                if ((ShouldDefend() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                    Action = shot ?? GetSupportingDefenseAction();
                 }
             }
-
-            // Attack
-            if ((ShouldAttack() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+            else
             {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                Action = shot ?? GetOffensiveAction();
-            }
+                // Kickoff
+                if (IsKickoff && Action == null)
+                {
+                    Action = new Kickoff();
+                }
 
-            if ((ShouldAttack() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                Action = shot ?? GetSupportingAction();
-            }
+                // Rotation and positioning
+                if (ShouldRotate() && Action == null)
+                {
+                    Vec3 desiredZone = Zone5Positioning();
+                    Action = new Drive(Me, desiredZone);
+                }
 
-            if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team != Me.Team && Action == null))
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
-                Action = shot ?? GetDefensiveAction();
-            }
+                // Boost grabbing
+                if (Me.Boost < 30 && IsClosest(Me) && Action == null)
+                {
+                    Action = new GetBoost(Me);
+                }
 
-            if ((ShouldDefend() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
-            {
-                Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                Action = shot ?? GetSupportingDefenseAction();
+                // Attack
+                if (ShouldAttack() && Action == null)
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                    Action = shot ?? Action ?? new Drive(Me, OurGoal.Location);
+                }
+
+                //Defend
+                if (ShouldDefend() && Action == null)
+                {
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
+                    Action = shot ?? Action ?? new Drive(Me, OurGoal.Location);
+                }
             }
         }
 
@@ -127,7 +166,7 @@ namespace Bot
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vec3 CalculateSupportPosition(Vec3 teammateLocation, Vec3 ballLocation, Vec3 goalLocation)
+        private static Vec3 CalculateSupportPosition(Vec3 teammateLocation, Vec3 ballLocation, Vec3 goalLocation)
         {
             Vec3 direction = goalLocation - teammateLocation;
             Vec3 perpendicular = direction.Normalize().Cross(Vec3.Up);
@@ -142,7 +181,7 @@ namespace Bot
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool CanBlock(Car car, Vec3 location)
+        public static bool CanBlock(Car car, Vec3 location)
         {
             return car.Location.Direction(location).Dot(Ball.Location.Direction(car.Location)) > 0.699999988079071;
         }
@@ -205,14 +244,14 @@ namespace Bot
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private float CalculatePower(Car car, BallSlice intercept, float eta)
+        private static float CalculatePower(Car car, BallSlice intercept, float eta)
         {
             Ball ball = intercept != null ? intercept.ToBall() : Ball.MainBall;
             return MathF.Max((ball.velocity - ((ball.location - car.Location) / eta)).Length(), ((ball.location - car.Location) / eta).Length());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool CanDefend(Car car, Vec3 location)
+        public static bool CanDefend(Car car, Vec3 location)
         {
             if (CanBlock(car, location))
             {

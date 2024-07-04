@@ -1,11 +1,12 @@
 ﻿using System;
 using rlbot.flat;
 using RedUtils.Math;
+using RedUtils.Objects;
 
 namespace RedUtils
 {
-	/// <summary>A car object. Also contains info on the player/bot controlling the car, like their name, score, etc</summary>
-	public class Car
+    /// <summary>A car object. Also contains info on the player/bot controlling the car, like their name, score, etc</summary>
+    public class Car
 	{
 		/// <summary>How long you can hold down the jump button during the first jump for extra height</summary>
 		public const float JumpMaxDuration = 0.2f;

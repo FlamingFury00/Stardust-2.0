@@ -1,11 +1,12 @@
 ﻿using RedUtils.Math;
+using RedUtils.Objects;
 using System;
 using System.Drawing;
 
 namespace RedUtils
 {
-	/// <summary>A jump shot action, where the car jumps and dodges into the ball</summary>
-	public class JumpShot : Shot
+    /// <summary>A jump shot action, where the car jumps and dodges into the ball</summary>
+    public class JumpShot : Shot
 	{
 		/// <summary>Whether or not this shot has finished</summary>
 		public override bool Finished { get; internal set; }

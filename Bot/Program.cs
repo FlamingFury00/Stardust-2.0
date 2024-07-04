@@ -2,9 +2,9 @@
 
 namespace Bot
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             int port;
             try
@@ -43,11 +43,11 @@ namespace Bot
                     "(Bot/Program.cs) for IDE instructions."
                 );
                 Console.ForegroundColor = currentColor;
-                Console.ReadKey();
+                _ = Console.ReadKey();
                 throw;
             }
 
-            RLBotDotNet.BotManager<Stardust> botManager = new RLBotDotNet.BotManager<Stardust>(0);
+            RLBotDotNet.BotManager<Stardust> botManager = new(0);
             // Start the server on the port given in the first argument
             botManager.Start(port);
         }
