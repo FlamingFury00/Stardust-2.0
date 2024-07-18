@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RedUtils")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db1197ceeb2f6d0a362b9a3a039f04afec7c2785")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e9a819b9ef83ee219f011835be2e5f914528d9b4")]
 [assembly: System.Reflection.AssemblyProductAttribute("RedUtils")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RedUtils")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

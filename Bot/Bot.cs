@@ -94,23 +94,27 @@ namespace Bot
                 }
 
                 // Boost grabbing
-                if (Me.Boost < 30 && IsClosest(Me) && Action == null)
+                if (Me.Boost < 30 && IsClosest(Me) && !ShouldDefend() && Action == null)
                 {
-                    Action = new GetBoost(Me);
+                    Boost targetBoost = GetBestBoost();
+                    if (targetBoost != null)
+                    {
+                        Action = new GetBoost(Me, targetBoost.Index);
+                    }
                 }
 
                 // Attack
                 if (ShouldAttack() && Action == null)
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? Action ?? new Drive(Me, OurGoal.Location);
+                    Action = shot ?? Action ?? new QuickShot(Me, TheirGoal.Location);
                 }
 
                 //Defend
                 if (ShouldDefend() && Action == null)
                 {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
-                    Action = shot ?? Action ?? new Drive(Me, OurGoal.Location);
+                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
+                    Action = shot ?? Action ?? null;
                 }
             }
         }
