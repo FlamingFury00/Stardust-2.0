@@ -8,7 +8,7 @@ namespace RedUtils
 	public class Ball
 	{
 		public const float MaxSpeed = 6000;
-		public const float Radius = 93.15f;
+		public const float Radius = 92.75f;
 
 		/// <summary>An instance of the current state of the ball in the game
 		/// <para>Unless you manipulate this object in some way, it is advised to use the static properties to access info on the current ball state</para>

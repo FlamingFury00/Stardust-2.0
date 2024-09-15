@@ -9,11 +9,11 @@ namespace RedUtils
     public class Goal
 	{
 		/// <summary>The total width of the goal, from post to post</summary>
-		public const float Width = 1780;
+		public const float Width = 1786;
 		/// <summary>The total height of the goal, from ground to crossbar</summary>
-		public const float Height = 640;
+		public const float Height = 642.775f;
 		/// <summary>The total depth of the goal</summary>
-		public const float Depth = 850;
+		public const float Depth = 880;
 
 		/// <summary>The team this goal belongs to</summary>
 		public readonly int Team;

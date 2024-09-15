@@ -36,7 +36,10 @@
           "RLBot.Framework": "2.0.0"
         },
         "runtime": {
-          "RedUtils.dll": {}
+          "RedUtils.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }

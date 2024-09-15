@@ -14,7 +14,7 @@ namespace RedUtils.Objects
         /// <summary>The width of the field, from one side wall to the other</summary>
         public const float Width = 8192;
         /// <summary>The total height of the field</summary>
-        public const float Height = 1950;
+        public const float Height = 2044;
 
         /// <summary>The corner planes intersect the axes at ±8064</summary>
         public const float CornerIntersection = 8064;

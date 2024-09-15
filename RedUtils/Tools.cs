@@ -100,11 +100,11 @@ namespace RedUtils
                     return jumpShot;
                 }
 
-                DoubleJumpShot doubleJumpShot = new(Me, slice, shotTarget);
+                /*DoubleJumpShot doubleJumpShot = new(Me, slice, shotTarget);
                 if (doubleJumpShot.IsValid(Me))
                 {
                     return doubleJumpShot;
-                }
+                }*/
             }
 
             return null;
