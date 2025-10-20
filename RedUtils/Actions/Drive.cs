@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Drawing;
 using RedUtils.Math;
-using RedUtils.Objects;
 
 namespace RedUtils
 {
-    /// <summary>An action meant to drive the car to a certain location</summary>
-    public class Drive : IAction
+	/// <summary>An action meant to drive the car to a certain location</summary>
+	public class Drive : IAction
 	{
 		/// <summary>Whether or not we have arrived at our destination</summary>
 		public bool Finished { get; private set; }
@@ -37,9 +36,9 @@ namespace RedUtils
 		/// <param name="targetSpeed">The speed we intend to mantain while driving</param>
 		/// <param name="allowDodges">Whether or not we are going to allow dodges to increase speed</param>
 		/// <param name="wasteBoost">>Whether or not we are going to use any amount of boost neccesary to mantain our target speed</param>
-		public Drive(Car car, Vec3 target, float targetSpeed = Car.MaxSpeed, bool allowDodges = true, bool wasteBoost = false, bool interruptible = true)
+		public Drive(Car car, Vec3 target, float targetSpeed = Car.MaxSpeed, bool allowDodges = true, bool wasteBoost = false)
 		{
-			Interruptible = interruptible;
+			Interruptible = true;
 			Finished = false;
 
 			Target = target;
@@ -136,9 +135,9 @@ namespace RedUtils
 				}
 
 				// Only boost when we are facing our target, and when we really need to
-				bot.Controller.Boost = bot.Controller.Boost && (angleToTarget < 0.3f || (angleToTarget < 0.8f && !bot.Me.IsGrounded)) && !Backwards && WasteBoost;
+				bot.Controller.Boost = bot.Controller.Boost && (angleToTarget < 0.35f || (angleToTarget < 0.85f && !bot.Me.IsGrounded)) && !Backwards && (WasteBoost || (TargetSpeed > 1800 && forwardSpeed > 1200));
 				// Drift if the target is behind us, or when we need to turn really sharply
-				bot.Controller.Handbrake = (MathF.Abs(angleToTarget) > 2 || (Field.DistanceBetweenPoints(nearestTurnCenter, Target) < turnRadius - 40 && SpeedFromTurnRadius(TurnRadius(bot.Me, Target)) < 400))
+				bot.Controller.Handbrake = (MathF.Abs(angleToTarget) > 2.2f || (Field.DistanceBetweenPoints(nearestTurnCenter, Target) < turnRadius - 40 && SpeedFromTurnRadius(TurnRadius(bot.Me, Target)) < 350))
 											&& mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
 
 				// Draws a debug line to represent the final target
@@ -158,17 +157,17 @@ namespace RedUtils
 						if (TargetSpeed > 100 + forwardSpeed)
 						{
 							// When we're moving forward, and need extra speed, look for dodges, speedflips, and wavedashes
-							if (bot.Me.Location.z < 200 && bot.Me.IsGrounded && carSpeed > 1000 && bot.Me.Forward.FlatAngle(bot.Me.Location.Direction(finalTarget)) < 0.1f && timeOnGround > 0.2f)
+							if (bot.Me.Location.z < 200 && bot.Me.IsGrounded && carSpeed > 850 && bot.Me.Forward.FlatAngle(bot.Me.Location.Direction(finalTarget)) < 0.12f && timeOnGround > 0.15f)
 							{
 								// If we are on the ground, we rule out wavedashes, and look at dodges
 								Dodge dodge = new Dodge(bot.Me.Location.FlatDirection(Target));
 
-								if (speedFlipTimeLeft > SpeedFlip.Duration && bot.Me.Boost > 0 && Field.InField(predictedLocation, 500) && WasteBoost)
-								{
-									// Only speedflip if we have time, and have boost
+								if (speedFlipTimeLeft > SpeedFlip.Duration && Field.InField(predictedLocation, 500))
+								{ 
+									// Prefer speedflip if we have time and field space; boost is not required for a speedflip
 									Action = new SpeedFlip(bot.Me.Location.FlatDirection(Target));
 								}
-								else if (timeLeft > dodge.Duration)
+								else if (timeLeft > dodge.Duration * 0.9f)
 								{
 									// Otherwise, dodge if we have time
 									Action = dodge;
@@ -212,13 +211,13 @@ namespace RedUtils
 				if (Action is SpeedFlip)
 				{
 					// If it's a speedflip, add a little extra speed
-					bot.Throttle(TargetSpeed + 500, Backwards);
+					bot.Throttle(TargetSpeed + 700, Backwards);
 				}
 			}
 
 			// Draws a debug line to represent the target
 			bot.Renderer.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
-
+			
 			// Prevents this action from being interrupted during a dodge
 			Interruptible = Action == null || Action.Interruptible;
 

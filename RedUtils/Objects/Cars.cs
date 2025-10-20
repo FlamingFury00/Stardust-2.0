@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using rlbot.flat;
-using RedUtils.Math;
+﻿using System.Collections.Generic;
+using RLBot.Flat;
 
 namespace RedUtils
 {
@@ -23,24 +21,24 @@ namespace RedUtils
 		/// <summary>All cars on the orange team, NOT including cars that are respawning</summary>
 		public static List<Car> LivingOrangeCars { get { return AllCars.FindAll(car => !car.IsDemolished && car.Team == 1); } }
 
-		/// <summary>Initliazes the list of cars with data from the packet</summary>
-		public static void Initialize(GameTickPacket packet)
-		{
-			AllCars = new List<Car>();
+        /// <summary>Initliazes the list of cars with data from the packet</summary>
+        public static void Initialize(GamePacketT packet)
+        {
+            AllCars = new List<Car>();
 
-			for (int i = 0; i < packet.PlayersLength; i++)
-			{
-				AllCars.Add(new Car(i, packet.Players(i).Value));
-			}
-		}
+            for (int i = 0; i < packet.Players.Count; i++)
+            {
+                AllCars.Add(new Car(i, packet.Players[i]));
+            }
+        }
 
-		/// <summary>Updates the list of cars with data from the packet</summary>
-		public static void Update(GameTickPacket packet)
-		{
-			foreach (Car car in AllCars)
-			{
-				car.Update(packet.Players(car.Index).Value);
-			}
-		}
-	}
+        /// <summary>Updates the list of cars with data from the packet</summary>
+        public static void Update(GamePacketT packet)
+        {
+            foreach (Car car in AllCars)
+            {
+                car.Update(packet.Players[car.Index]);
+            }
+        }
+    }
 }

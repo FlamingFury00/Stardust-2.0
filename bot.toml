@@ -1,0 +1,28 @@
+[settings]
+# A unique string identifying this type of bot, typically on the form "<developer>/<botname>"
+# VVVVV CHANGE THIS VVVVV
+agent_id = "flamingfury00/stardust"
+# The name that will be displayed in game
+name = "Stardust-2.0"
+# Path to loadout config from runner
+loadout_file = "loadout.toml"
+# (OPTIONAL) - what you want the working directory set to
+# This is relative to the location of this file
+root_dir = ""
+# The command RLBot will call to start your bot on Windows
+# ex: "bot.exe" for after your bot is compiled (via `dotnet publish`), or `dotnet run`/`dotnet run -c "Release"` during development
+run_command = ".\\Bot\\bin\\Release\\net8.0\\Bot.exe"
+# The command RLBot will call to start your bot on linux
+# If this isn't set, RLBot may attempt to run the Windows command under Wine
+# run_command_linux = "dotnet run --project ./Bot -c \"Release\""
+
+[details]
+description = "This is the second version of Stardust, this time it uses RedUtils. It is a bot that always tries to do teamplays and passes."
+fun_fact = "Each teammate trusts each other a lot, so every mistake or miss could lead to dangerous situations."
+source_link = "https://github.com/FlamingFury00/Stardust-2.0@v5"
+developer = "FlamingFury00 (+CodeRed)"
+language = "C#"
+# ALL POSSIBLE TAGS: 1v1, teamplay, goalie, hoops, dropshot, snow-day, spike-rush, heatseaker, memebot
+# NOTE: Only add the goalie tag if your bot only plays as a goalie; this directly contrasts with the teamplay tag!
+# NOTE: Only add a tag for a special game mode if you bot properly supports it
+tags = []

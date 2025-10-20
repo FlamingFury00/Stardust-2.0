@@ -1,0 +1,631 @@
+include "color.fbs";
+
+namespace rlbot.flat;
+
+/// A normal human player.
+table Human {}
+
+/// A bot controlled by the RLBot framework.
+table CustomBot {
+  /// Requested bot name. When match start, RLBot will ensure each bot has a unique name; bots with
+  /// duplicate names will be renamed with a suffix like `(2)`
+  name: string (required);
+
+  /// The root directory of the bot and the working directory for the run command.
+  root_dir: string (required);
+
+  /// The console command that starts this bot.
+  run_command: string (required);
+
+  /// The loadout of the player.
+  loadout: PlayerLoadout;
+
+  /// A unique user-defined string that is used to connect clients to the right players/scripts.
+  /// If a bot/script has a run command, RLBot will pass this agent id to the process using an environment variable, RLBOT_AGENT_ID.
+  /// Upon connecting the process announces that it is responsible for this agent id and RLBot will pair the two.
+  /// The recommended format for agent ids is "developer_name/bot_name".
+  agent_id: string (required);
+
+  /// Whether this player is part of a hivemind bot where all players/cars are controlled by the same process.
+  /// Players in the hivemind must have the same name, team, run command, and agent id.
+  hivemind: bool;
+}
+
+/// Various skill levels of Psyonix bots.
+enum PsyonixSkill: ubyte {
+  Beginner,
+  Rookie,
+  Pro,
+  AllStar
+}
+
+/// A Psyonix bot, e.g. All Star bot.
+table PsyonixBot {
+  /// Requested bot name. When match start, RLBot will ensure each bot has a unique name; bots with
+  /// duplicate names will be renamed with a suffix like `(2)`. For psyonix bots, a blank name will
+  /// be replaced with one of the official names.
+  name: string (required);
+
+  /// The loadout of the player.
+  loadout: PlayerLoadout;
+
+  bot_skill: PsyonixSkill;
+}
+
+/// Possible player types.
+union PlayerClass {
+  Human,
+  CustomBot,
+  PsyonixBot,
+}
+
+/// A PlayerConfiguration defines a player of a match.
+table PlayerConfiguration {
+  /// The type of the player, i.e. human, Psyonix bot, or a custom bot.
+  // Cannot be named 'class' because that breaks Java.
+  // Cannot be named 'playerClass' because that breaks C#.
+  variety: PlayerClass (required);
+
+  /// The team of the player. Blue is 0, orange is 1.
+  team: uint;
+
+  /// The value will be set by RLBot and is always overriden.
+  /// This value is mostly used internally to keep track of participants in the match.
+  /// The player id can be used to find the corresponding player in the GamePacket.
+  player_id: int;
+}
+
+/// Defines the car type, color, and other aspects of the player's appearance.
+/// See https://wiki.rlbot.org/botmaking/bot-customization/
+table PlayerLoadout {
+  team_color_id: uint;
+  custom_color_id: uint;
+  car_id: uint;
+  decal_id: uint;
+  wheels_id: uint;
+  boost_id: uint;
+  antenna_id: uint;
+  hat_id: uint;
+  paint_finish_id: uint;
+  custom_finish_id: uint;
+  engine_audio_id: uint;
+  trails_id: uint;
+  goal_explosion_id: uint;
+  loadout_paint: LoadoutPaint;
+
+  /// Sets the primary color of the car to the swatch that most closely matches the provided
+  /// RGB color value. If set, this overrides teamColorId.
+  primary_color_lookup: Color;
+
+  /// Sets the secondary color of the car to the swatch that most closely matches the provided
+  /// RGB color value. If set, this overrides customColorId.
+  secondary_color_lookup: Color;
+}
+
+/// Specification for 'painted' items. See https://wiki.rlbot.org/botmaking/bot-customization/
+table LoadoutPaint {
+  car_paint_id: uint;
+  decal_paint_id: uint;
+  wheels_paint_id: uint;
+  boost_paint_id: uint;
+  antenna_paint_id: uint;
+  hat_paint_id: uint;
+  trails_paint_id: uint;
+  goal_explosion_paint_id: uint;
+}
+
+/// Various game modes.
+enum GameMode: ubyte {
+  Soccar,
+  Hoops,
+  Dropshot,
+  Snowday,
+  Rumble,
+  Heatseeker,
+  Gridiron,
+  Knockout
+}
+
+/// Match length mutator options.
+enum MatchLengthMutator: ubyte {
+  FiveMinutes,
+  TenMinutes,
+  TwentyMinutes,
+  Unlimited
+}
+
+/// Max score mutator options.
+enum MaxScoreMutator: ubyte {
+  Unlimited,
+  OneGoal,
+  ThreeGoals,
+  FiveGoals,
+  SevenGoals,
+  TenGoals,
+  TwentyGoals,
+  ThirtyGoals,
+  FortyGoals,
+  FiftyGoals,
+  SixtyGoals,
+  SeventyGoals,
+  EightyGoals,
+  NinetyGoals,
+  HundredGoals
+}
+
+/// Multi ball mutator options.
+enum MultiBallMutator: ubyte {
+  One,
+  Two,
+  Four,
+  Six
+}
+
+/// Overtime mutator options.
+enum OvertimeMutator: ubyte {
+  Unlimited,
+  FiveMaxFirstScore,
+  FiveMaxRandomTeam
+}
+
+/// Series length mutator options.
+enum SeriesLengthMutator: ubyte {
+  Unlimited,
+  ThreeGames,
+  FiveGames,
+  SevenGames
+}
+
+/// Game speed mutator options.
+enum GameSpeedMutator: ubyte {
+  Default,
+  SloMo,
+  TimeWarp
+}
+
+/// Ball max speed mutator options.
+enum BallMaxSpeedMutator: ubyte {
+  Default,
+  Slow,
+  Fast,
+  SuperFast
+}
+
+/// Ball type mutator options.
+enum BallTypeMutator: ubyte {
+  Default,
+  Cube,
+  Puck,
+  Basketball,
+  Beachball,
+  Anniversary,
+  Haunted,
+  Ekin,
+  SpookyCube,
+  Egg,
+  PlayerSeeking,
+  Dropshot,
+  ScoreAbsorb,
+  Shoe,
+  PizzaPuck
+}
+
+/// Ball weight mutator options.
+enum BallWeightMutator: ubyte {
+  Default,
+  Light,
+  Heavy,
+  SuperLight,
+  CurveBall,
+  BeachBallCurve,
+  MagnusFutBall,
+  MagnusFutballLess
+}
+
+/// Ball size mutator options.
+enum BallSizeMutator: ubyte {
+  Default,
+  Small,
+  Medium,
+  Large,
+  Gigantic
+}
+
+/// Ball bounciness mutator options.
+enum BallBouncinessMutator: ubyte {
+  Default,
+  Low,
+  High,
+  SuperHigh,
+  Lowish,
+}
+
+/// Ball gravity mutator options.
+enum BallGravityMutator: ubyte {
+  Default,
+  Low,
+  High,
+  SuperHigh
+}
+
+/// Boost amount mutator options.
+enum BoostAmountMutator: ubyte {
+  NormalBoost,
+  UnlimitedBoost,
+  SlowRecharge,
+  RapidRecharge,
+  NoBoost
+}
+
+/// Rumble mutator options.
+enum RumbleMutator: ubyte {
+  Off,
+  DefaultRumble,
+  Slow,
+  Civilized,
+  DestructionDerby,
+  SpringLoaded,
+  SpikesOnly,
+  SpikeRush,
+  HauntedBallBeam,
+  Tactical,
+  BatmanRumble,
+  GrapplingOnly,
+  HaymakerOnly,
+  SpikeRushForce,
+  RPS,
+}
+
+/// Boost strength mutator options.
+enum BoostStrengthMutator: ubyte {
+  One,
+  OneAndAHalf,
+  Two,
+  Five,
+  Ten
+}
+
+/// Gravity mutator options.
+enum GravityMutator: ubyte {
+  Default,
+  Low,
+  High,
+  SuperHigh,
+  Reverse
+}
+
+/// Demolition mutator options.
+enum DemolishMutator: ubyte {
+  Default,
+  Disabled,
+  FriendlyFire,
+  OnContact,
+  OnContactFF,
+  OnBallContact,
+  OnBallContactFF,
+  OnBallContactSilent,
+  OnBallContactFFSilent
+}
+
+/// Respawn time mutator options.
+enum RespawnTimeMutator: ubyte {
+  ThreeSeconds,
+  TwoSeconds,
+  OneSecond,
+  DisableGoalReset
+}
+
+/// Max time mutator options.
+enum MaxTimeMutator: ubyte {
+  Unlimited,
+  ElevenMinutes
+}
+
+/// Game event mutator options.
+enum GameEventMutator: ubyte {
+  Default,
+  Haunted,
+  Rugby
+}
+
+/// Audio mutator options.
+enum AudioMutator: ubyte {
+  Default,
+  Haunted
+}
+
+enum TerritoryMutator: ubyte {
+  Off,
+  Territory
+}
+
+enum StaleBallMutator: ubyte {
+  Unlimited,
+  ThirtySeconds
+}
+
+enum JumpMutator: ubyte {
+  Default,
+  Grounded,
+  Two,
+  Three,
+  Four,
+  Unlimited,
+  NoJumps
+}
+
+enum DodgeTimerMutator: ubyte {
+  OnePointTwentyFiveSeconds,
+  TwoSeconds,
+  ThreeSeconds,
+  Unlimited
+}
+
+enum PossessionScoreMutator: ubyte {
+  Off,
+  OneSecond,
+  TwoSeconds,
+  ThreeSeconds
+}
+
+enum DemolishScoreMutator: ubyte {
+  Zero,
+  One,
+  Two,
+  Three
+}
+
+enum NormalGoalScoreMutator: ubyte {
+  One,
+  Zero,
+  Two,
+  Three,
+  Five,
+  Ten
+}
+
+enum AerialGoalScoreMutator: ubyte {
+  One,
+  Zero,
+  Two,
+  Three,
+  Five,
+  Ten
+}
+
+enum AssistGoalScoreMutator: ubyte {
+  Zero,
+  One,
+  Two,
+  Three
+}
+
+enum InputRestrictionMutator: ubyte {
+  Default,
+  Backwards
+}
+
+enum ScoringRuleMutator: ubyte {
+  Default,
+  Disabled
+}
+
+/// All mutators options.
+table MutatorSettings {
+  /// Duration of the match.
+  match_length: MatchLengthMutator;
+
+  /// Max score of match. If this score is reached, the team immediately wins.
+  max_score: MaxScoreMutator;
+
+  /// The number of balls.
+  multi_ball: MultiBallMutator;
+
+  /// The overtime rules and tiebreaker.
+  overtime: OvertimeMutator;
+
+  /// The series length.
+  series_length: SeriesLengthMutator;
+
+  /// A game speed multiplier.
+  game_speed: GameSpeedMutator;
+
+  /// Ball max speed.
+  ball_max_speed: BallMaxSpeedMutator;
+
+  /// Ball type and shape.
+  ball_type: BallTypeMutator;
+
+  /// Ball weight and how much is curves.
+  ball_weight: BallWeightMutator;
+
+  /// Ball size.
+  ball_size: BallSizeMutator;
+
+  /// Ball bounciness.
+  ball_bounciness: BallBouncinessMutator;
+
+  /// Boost amount/recharge.
+  boost_amount: BoostAmountMutator;
+
+  /// Rumble item rules.
+  rumble: RumbleMutator;
+
+  /// Boost strength multiplier.
+  boost_strength: BoostStrengthMutator;
+
+  /// Strength of gravity.
+  gravity: GravityMutator;
+
+  /// Demolition conditions.
+  demolish: DemolishMutator;
+
+  /// Demolition respawn time.
+  respawn_time: RespawnTimeMutator;
+
+  /// Max real-time duration of match including kickoff, replays, and more.
+  /// If the score is tied upon time-out, the number of shots determine the winner.
+  max_time: MaxTimeMutator;
+
+  /// Additional game behaviour for custom modes.
+  game_event: GameEventMutator;
+
+  /// Additional audio options for custom modes.
+  audio: AudioMutator;
+
+  /// Ball gravity.
+  ball_gravity: BallGravityMutator;
+
+  /// Territory mutator.
+  territory: TerritoryMutator;
+
+  /// Stale ball mutator.
+  stale_ball: StaleBallMutator;
+
+  /// Jumps mutator.
+  jump: JumpMutator;
+
+  /// Dodge timer mutator.
+  dodge_timer: DodgeTimerMutator;
+
+  /// Possession score mutator.
+  possession_score: PossessionScoreMutator;
+
+  /// Demolish score mutator.
+  demolish_score: DemolishScoreMutator;
+
+  /// Normal goal score mutator.
+  normal_goal_score: NormalGoalScoreMutator;
+
+  /// Aerial goal score mutator.
+  aerial_goal_score: AerialGoalScoreMutator;
+
+  /// Assist goal score mutator.
+  assist_goal_score: AssistGoalScoreMutator;
+
+  /// Player input restriction mutator.
+  input_restriction: InputRestrictionMutator;
+
+  /// Additional rules about scoring (ball-goal interaction).
+  scoring_rule: ScoringRuleMutator;
+}
+
+enum DebugRendering: ubyte {
+  /// Renders are ignored unless explicitly enabled per-agent
+  OffByDefault,
+
+  /// Rendering is enabled for everyone by default
+  OnByDefault,
+
+  /// Ignore all render attempts at all times
+  AlwaysOff
+}
+
+/// Possible behaviours when a match is started while another match is in progress.
+enum ExistingMatchBehavior: ubyte {
+  /// Always restart the match, even if config is identical.
+  Restart,
+
+  /// Never restart an existing match if possible, just try to remove or spawn cars to match the configuration.
+  /// If we are not in the middle of a match, a match will be started. Handy for LAN matches.
+  ContinueAndSpawn,
+
+  /// Restart the match if any match settings differ.
+  /// No other otherwise.
+  RestartIfDifferent,
+}
+
+/// Possible to launch Rocket League.
+enum Launcher: ubyte {
+  Steam,
+  Epic,
+
+  /// E.g. if you use Legendary.
+  /// The game path is specified in the MatchConfiguration.
+  Custom,
+  NoLaunch,
+}
+
+/// A ScriptConfiguration defines a script of a match.
+table ScriptConfiguration {
+  /// The name of the script.
+  name: string (required);
+
+  /// The root directory of the script and the working directory for the run command.
+  root_dir: string (required);
+
+  /// A console command that will start up the script.
+  run_command: string (required);
+
+  /// The id of the script.
+  /// This value is mostly used internally to keep track of participants in the match.
+  script_id: int;
+
+  /// A unique user-defined string that is used to connect clients to the right players/scripts.
+  /// If a bot/script has a run command, RLBot will pass this agent id to the process using an environment variable, RLBOT_AGENT_ID.
+  /// Upon connecting the process announces that it is responsible for this agent id and RLBot will pair the two.
+  /// The recommended format for agent ids is "developername/botname".
+  agent_id: string (required);
+}
+
+/// Definition of a match.
+/// Can be sent to RLBot to request the start of a match.
+table MatchConfiguration {
+  /// How to launch Rocket League.
+  /// If left unset, RLBot will not launch the game.
+  /// To use Legendary, use Custom and set launcher_arg="legendary".
+  launcher: Launcher;
+
+  /// Additional configuration for the launching method.
+  /// See launcher.
+  launcher_arg: string (required);
+
+  /// If true, RLBot will start the bots and scripts that has a non-empty run command in their player/script configuration.
+  auto_start_agents: bool = true;
+
+  /// If true, RLBot will start the match only once all bots and script have connected and are ready.
+  /// If false, the match will start as soon as the map loads.
+  wait_for_agents: bool = true;
+
+  /// The name of a upk file, like UtopiaStadium_P, which should be loaded.
+  /// On Steam version of Rocket League this can be used to load custom map files,
+  /// but on Epic version it only works on the Psyonix maps.
+  /// Available maps can be found here: https://github.com/VirxEC/python-interface/blob/master/rlbot/utils/maps.py
+  game_map_upk: string (required);
+
+  /// The players in the match.
+  player_configurations: [PlayerConfiguration] (required);
+
+  /// The custom scripts used in the match.
+  script_configurations: [ScriptConfiguration] (required);
+
+  /// The game mode.
+  /// This affects a few of the game rules although many game modes can also be recreated solely from mutators.
+  /// See what mutators and game mode combinations make up the official modes at https://github.com/VirxEC/python-interface/tree/master/tests/gamemodes
+  game_mode: GameMode;
+
+  /// Whether to skip goal replays.
+  skip_replays: bool;
+
+  /// Whether to start without a kickoff countdown.
+  instant_start: bool;
+
+  /// Mutator settings.
+  mutators: MutatorSettings;
+
+  /// How to handle any ongoing match.
+  existing_match_behavior: ExistingMatchBehavior;
+
+  /// Whether debug rendering is displayed.
+  enable_rendering: DebugRendering;
+
+  /// Whether clients are allowed to manipulate the game state, e.g. teleporting cars and ball.
+  enable_state_setting: bool = true;
+
+  /// Whether the match replay should be saved.
+  auto_save_replay: bool;
+
+  /// If set to true, a free play match is launched instead of an exhibition match.
+  /// This allows the players to use training keybinds, Bakkesmod plugins, and other features that are only allowed in free play.
+  freeplay: bool;
+}

@@ -1,5 +1,5 @@
-﻿using rlbot.flat;
-using RedUtils.Math;
+﻿using RedUtils.Math;
+using RLBot.Flat;
 
 namespace RedUtils
 {
@@ -16,13 +16,13 @@ namespace RedUtils
 		public readonly float Time;
 
 		/// <summary>Initializes a new ball slice</summary>
-		public BallSlice(PredictionSlice slice)
+		public BallSlice(PredictionSliceT slice)
 		{
-			Location = new Vec3(slice.Physics.Value.Location.Value);
-			Velocity = new Vec3(slice.Physics.Value.Velocity.Value);
-			AngularVelocity = new Vec3(slice.Physics.Value.AngularVelocity.Value);
-			Time = slice.GameSeconds;
-		}
+            Location = new Vec3(slice.Physics.Location);
+            Velocity = new Vec3(slice.Physics.Velocity);
+            AngularVelocity = new Vec3(slice.Physics.AngularVelocity);
+            Time = slice.GameSeconds;
+        }
 
 		/// <summary>Converts this ball slice to a ball</summary>
 		public Ball ToBall()

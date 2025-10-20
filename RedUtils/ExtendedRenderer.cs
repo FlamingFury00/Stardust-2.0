@@ -9,7 +9,7 @@ using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using RedUtils.Math;
-using RLBotDotNet.Renderer;
+using RLBot.Manager;
 
 namespace RedUtils
 {
@@ -33,46 +33,46 @@ namespace RedUtils
         }
 
         /// <summary>Draws text in screenspace</summary>
-        public void Text2D(string text, Vec3 upperLeft, int scale = 1, Color? color = null)
+        public void Text2D(string text, Vec3 upperLeft, float scale = 1, Color? color = null)
         {
-            _renderer.DrawString2D(text, color ?? Color, NumVec2(upperLeft), scale, scale);
+            _renderer.DrawText2D(text, upperLeft.x, upperLeft.y, scale, color ?? Color);
         }
 
         /// <summary>Draws text at a point in world space</summary>
-        public void Text3D(string text, Vec3 pos, int scale = 1, Color? color = null)
+        public void Text3D(string text, Vec3 pos, float scale = 1, Color? color = null)
         {
-            _renderer.DrawString3D(text, color ?? Color, NumVec(pos), scale, scale);
+            _renderer.DrawText3D(text, NumVec(pos), scale, color ?? Color);
         }
 
         /// <summary>Draws a rectangle at a point in world space</summary>
         public void Rect3D(Vec3 pos, int width, int height, bool fill = true, Color? color = null)
         {
-            _renderer.DrawRectangle3D(color ?? Color, NumVec(pos), width, height, fill);
+            _renderer.DrawRect3D(NumVec(pos), width, height, color ?? Color);
         }
 
         /// <summary>Draws a line in world space</summary>
         public void Line3D(Vec3 start, Vec3 end, Color? color = null)
         {
-            _renderer.DrawLine3D(color ?? Color, NumVec(start), NumVec(end));
+            _renderer.DrawLine3D(NumVec(start), NumVec(end), color ?? Color);
         }
 
         /// <summary>Draws a line in screenspace</summary>
-        public void Line2D(Vec3 start, Vec3 end, Color? color = null)
-        {
-            _renderer.DrawLine2D(color ?? Color, NumVec2(start), NumVec2(end));
-        }
+        //public void Line2D(Vec3 start, Vec3 end, Color? color = null)
+        //{
+        //    _renderer.DrawLine2D(color ?? Color, NumVec2(start), NumVec2(end));
+        //}
 
         /// <summary>Draws a line in world space consisting between each pair of points in the given array</summary>
         public void Polyline3D(IEnumerable<Vec3> points, Color? color = null)
         {
-            _renderer.DrawPolyLine3D(color ?? Color, points.Select(NumVec).ToArray());
+            _renderer.DrawPolyLine3D(points.Select(NumVec).ToArray(), color ?? Color);
         }
 
         /// <summary>Draws a line in screen space consisting between each pair of points in the given array</summary>
-        public void Polyline2D(IEnumerable<Vec3> points, Color? color = null)
-        {
-            _renderer.DrawPolyLine2D(color ?? Color, points.Select(NumVec2).ToArray());
-        }
+        //public void Polyline2D(IEnumerable<Vec3> points, Color? color = null)
+        //{
+        //    _renderer.DrawPolyLine2D(points.Select(NumVec2).ToArray(), color ?? Color);
+        //}
 
         /// <summary>Draws a circle</summary>
         public void Circle(Vec3 pos, Vec3 normal, float radius, Color? color = null)

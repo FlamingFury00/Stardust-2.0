@@ -1,5 +1,5 @@
+using RLBot.Flat;
 using System;
-using rlbot.flat;
 
 namespace RedUtils.Math
 {
@@ -94,14 +94,14 @@ namespace RedUtils.Math
 			z = vector.z;
 		}
 		/// <summary>Converts <see cref="rlbot.flat.Vector3"/> to a <see cref="Vec3"/></summary>
-		public Vec3(Vector3 vector)
+		public Vec3(Vector3T vector)
 		{
 			x = vector.X;
 			y = vector.Y;
 			z = vector.Z;
 		}
 		/// <summary>Converts <see cref="rlbot.flat.Rotator"/> to a <see cref="Vec3"/></summary>
-		public Vec3(Rotator rotator)
+		public Vec3(RotatorT rotator)
 		{
 			x = rotator.Pitch;
 			y = rotator.Yaw;

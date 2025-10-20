@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <OutputType>Library</OutputType>
+    <RootNamespace>RLBot</RootNamespace>
+    <PackageVersion>5.0.0-alpha1</PackageVersion>
+  </PropertyGroup>
+
+  <Target Name="GenerateVersionInfo" BeforeTargets="BeforeCompile">
+    <WriteLinesToFile
+      File="Util\VersionInfo.cs"
+      Lines='namespace RLBot.Util%3b public static class VersionInfo { public const string PackageVersion = "$(PackageVersion)"%3b }'
+      Overwrite="true"/>
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="0.17.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+  </ItemGroup>
+
+  <Target Name="GenerateFlatBuffersWindows" BeforeTargets="PreBuildEvent" Condition=" '$(OS)' == 'Windows_NT' ">
+    <Exec Command="call ../generate-flatbuffers.bat" />
+  </Target>
+
+  <Target Name="GenerateFlatBuffersLinux" BeforeTargets="PreBuildEvent" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
+    <Exec Command="../generate-flatbuffers.sh" />
+  </Target>
+</Project>

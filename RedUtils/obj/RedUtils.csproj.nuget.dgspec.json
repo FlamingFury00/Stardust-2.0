@@ -1,32 +1,105 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {}
+    "C:\\Users\\manue\\Desktop\\Redutils\\RedUtils\\RedUtils.csproj": {}
   },
   "projects": {
-    "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj": {
+    "C:\\Users\\manue\\Desktop\\Redutils\\RedUtils\\RedUtils.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
+        "projectUniqueName": "C:\\Users\\manue\\Desktop\\Redutils\\RedUtils\\RedUtils.csproj",
         "projectName": "RedUtils",
-        "projectPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\RedUtils.csproj",
+        "projectPath": "C:\\Users\\manue\\Desktop\\Redutils\\RedUtils\\RedUtils.csproj",
         "packagesPath": "C:\\Users\\manue\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\manue\\Desktop\\Progetti\\Stardust-2.0\\RedUtils\\obj\\",
+        "outputPath": "C:\\Users\\manue\\Desktop\\Redutils\\RedUtils\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
           "C:\\Users\\manue\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
-          "net6.0"
+          "net8.0"
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net6.0": {
-            "targetAlias": "net6.0",
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\RLBot.csproj": {
+                "projectPath": "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\RLBot.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100-rc.2.25502.107/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\RLBot.csproj": {
+      "version": "5.0.0-alpha1",
+      "restore": {
+        "projectUniqueName": "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\RLBot.csproj",
+        "projectName": "RLBot",
+        "projectPath": "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\RLBot.csproj",
+        "packagesPath": "C:\\Users\\manue\\.nuget\\packages\\",
+        "outputPath": "c:\\Users\\manue\\Desktop\\Redutils\\RLBot\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\manue\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
             "projectReferences": {}
           }
         },
@@ -39,15 +112,30 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
-        "net6.0": {
-          "targetAlias": "net6.0",
+        "net8.0": {
+          "targetAlias": "net8.0",
           "dependencies": {
-            "RLBot.Framework": {
+            "Google.FlatBuffers": {
               "target": "Package",
-              "version": "[2.0.0, )"
+              "version": "[25.2.10, )"
+            },
+            "Microsoft.Extensions.Logging": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.NET.ILLink.Tasks": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.21, )",
+              "autoReferenced": true
+            },
+            "Tomlyn": {
+              "target": "Package",
+              "version": "[0.17.0, )"
             }
           },
           "imports": [
@@ -66,7 +154,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.400\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100-rc.2.25502.107/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

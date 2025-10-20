@@ -1,0 +1,47 @@
+[blue_loadout]
+  team_color_id = 5
+  custom_color_id = 12
+  car_id = 1568
+  decal_id = 7755
+  wheels_id = 7812
+  boost_id = 5852
+  antenna_id = 0
+  hat_id = 0
+  paint_finish_id = 0
+  custom_finish_id = 0
+  engine_audio_id = 0
+  trails_id = 5960
+  goal_explosion_id = 5975
+  [blue_loadout.paint]
+    car_paint_id = 5
+    decal_paint_id = 4
+    wheels_paint_id = 4
+    boost_paint_id = 4
+    antenna_paint_id = 0
+    hat_paint_id = 0
+    trails_paint_id = 4
+    goal_explosion_paint_id = 5
+
+[orange_loadout]
+  team_color_id = 3
+  custom_color_id = 0
+  car_id = 11603
+  decal_id = 2966
+  wheels_id = 2614
+  boost_id = 69
+  antenna_id = 0
+  hat_id = 0
+  paint_finish_id = 0
+  custom_finish_id = 0
+  engine_audio_id = 0
+  trails_id = 1898
+  goal_explosion_id = 4373
+  [orange_loadout.paint]
+    car_paint_id = 9
+    decal_paint_id = 1
+    wheels_paint_id = 1
+    boost_paint_id = 1
+    antenna_paint_id = 0
+    hat_paint_id = 0
+    trails_paint_id = 1
+    goal_explosion_paint_id = 9

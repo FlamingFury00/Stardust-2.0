@@ -1,6 +1,5 @@
 ﻿using System;
 using RedUtils.Math;
-using RedUtils.Objects;
 
 namespace RedUtils
 {

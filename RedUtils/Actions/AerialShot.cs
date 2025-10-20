@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Timers;
 using RedUtils.Math;
-using RedUtils.Objects;
 
 namespace RedUtils
 {
-    /// <summary>An aerial shot action, where the car flys into the ball</summary>
-    public class AerialShot : Shot
+	/// <summary>An aerial shot action, where the car flys into the ball</summary>
+	public class AerialShot : Shot
 	{
 		/// <summary>Whether or not this aerial has finished</summary>
 		public override bool Finished { get; internal set; }
@@ -32,7 +31,7 @@ namespace RedUtils
 		/// <summary>Whether or not we should jump immediatly or turn and then jump</summary>
 		private readonly bool _jumpImmediatly = false;
 		/// <summary>The amount of boost we have when starting this action</summary>
-		private readonly int _startBoostAmount = 0;
+		private readonly float _startBoostAmount = 0;
 		/// <summary>Whether or not the car is currently double jumping</summary>
 		private bool _currentlyDoubleJumping = false;
 		/// <summary>Whether or not the car is no longer turning to face the target</summary>

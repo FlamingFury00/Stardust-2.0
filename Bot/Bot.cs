@@ -1,7 +1,5 @@
 ﻿using RedUtils;
-using RedUtils.Actions;
 using RedUtils.Math;
-using RedUtils.Objects;
 using System;
 using System.Runtime.CompilerServices;
 
@@ -20,7 +18,7 @@ namespace Bot
     {
         public bool Shooting { get; set; }
 
-        public Stardust(string botName, int botTeam, int botIndex) : base(botName, botTeam, botIndex) { }
+        public Stardust(string defaultAgentId = null) : base(defaultAgentId) { }
 
         public override void Run()
         {
@@ -33,7 +31,20 @@ namespace Bot
                 }
                 else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
                 {
-                    return;
+                    // Second man: cheat up to center then rotate to back boost to be ready
+                    Vec3 cheatPos = new Vec3(0, Field.Side(Team) * -500, 0);
+                    Action = new Drive(Me, cheatPos, 1500f, allowDodges: true, wasteBoost: false);
+                    return; // Keep it simple during kickoff frame
+                }
+
+                // Prioritize boost grabbing when low and safe before generic rotation
+                if (Me.Boost < 30 && !IsLastOneBack() && !ShouldDefend() && Action == null)
+                {
+                    Boost targetBoost = GetBestBoost();
+                    if (targetBoost != null)
+                    {
+                        Action = new GetBoost(Me, targetBoost.Index);
+                    }
                 }
 
                 // Rotation and positioning
@@ -43,39 +54,46 @@ namespace Bot
                     Action = new Drive(Me, desiredZone);
                 }
 
-                // Boost grabbing
-                if (Me.Boost < 30 && IsSecondClosest() && Action == null)
-                {
-                    Boost targetBoost = GetBestBoost();
-                    if (targetBoost != null)
-                    {
-                        Action = new Drive(Me, targetBoost.Location);
-                    }
-                }
-
                 // Attack
                 if ((ShouldAttack() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? GetOffensiveAction();
+                    if (shot != null)
+                    {
+                        Action = shot;
+                    }
+                    else
+                    {
+                        // Safer fallback: arrive to a strong shooting lane instead of QuickShot
+                        Vec3 lane = new Vec3(Utils.Cap(Ball.Location.x, -1500, 1500), Ball.Location.y - 800 * Field.Side(Team), 0);
+                        Action = new Arrive(Me, Field.LimitToNearestSurface(lane), (TheirGoal.Location - Ball.Location).Flatten());
+                    }
                 }
 
                 if ((ShouldAttack() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
                 {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? GetSupportingAction();
+                    // Second man: do not also take the shot to avoid double commits; support instead
+                    Action = GetSupportingAction();
                 }
 
                 if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team != Me.Team && Action == null))
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
-                    Action = shot ?? GetDefensiveAction();
+                    if (shot != null)
+                    {
+                        Action = shot;
+                    }
+                    else
+                    {
+                        // Integrate shadowing behavior when no clear shot/clear is found
+                        Action = new Shadow(Me);
+                    }
                 }
 
                 if ((ShouldDefend() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
                 {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? GetSupportingDefenseAction();
+                    // Second man on defense: hold supporting defensive position
+                    Action = GetSupportingDefenseAction();
                 }
             }
             else
@@ -93,8 +111,8 @@ namespace Bot
                     Action = new Drive(Me, desiredZone);
                 }
 
-                // Boost grabbing
-                if (Me.Boost < 30 && IsClosest(Me) && !ShouldDefend() && Action == null)
+                // Boost grabbing (1v1): prioritize when not defending or last back
+                if (Me.Boost < 36 && IsClosest(Me) && !ShouldDefend() && !IsLastOneBack() && Action == null)
                 {
                     Boost targetBoost = GetBestBoost();
                     if (targetBoost != null)
@@ -107,14 +125,31 @@ namespace Bot
                 if (ShouldAttack() && Action == null)
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? Action ?? new QuickShot(Me, TheirGoal.Location);
+                    if (shot != null)
+                    {
+                        Action = shot;
+                    }
+                    else
+                    {
+                        // Safer fallback in 1v1: arrive to ball on shooting lane
+                        Vec3 dir = (TheirGoal.Location - Ball.Location).Flatten();
+                        Vec3 lane = Field.LimitToNearestSurface(Ball.Location - dir.Normalize() * 900);
+                        Action = new Arrive(Me, lane, dir);
+                    }
                 }
 
                 //Defend
                 if (ShouldDefend() && Action == null)
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    Action = shot ?? Action ?? null;
+                    if (shot != null)
+                    {
+                        Action = shot;
+                    }
+                    else
+                    {
+                        Action = new Shadow(Me);
+                    }
                 }
             }
         }
@@ -129,7 +164,7 @@ namespace Bot
             }
 
             return GetClosestOpponent().Location.Dist(Ball.Location) > GetClosestTeammate().Location.Dist(Ball.Location)
-                ? new GetBoost(Me, false)
+                ? new GetBoost(Me, interruptible: false)
                 : (IAction)null;
         }
 

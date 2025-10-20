@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Timers;
 using RedUtils.Math;
-using RedUtils.Objects;
 
 namespace RedUtils
 {
-    /// <summary>A ground shot action, where the car runs into the ball without leaving the ground
-    /// <para>Can also be used for dribbling</para>
-    /// </summary>
-    public class GroundShot : Shot
+	/// <summary>A ground shot action, where the car runs into the ball without leaving the ground
+	/// <para>Can also be used for dribbling</para>
+	/// </summary>
+	public class GroundShot : Shot
 	{
 		/// <summary>Whether or not this shot has finished</summary>
 		public override bool Finished { get; internal set; }
@@ -28,7 +27,7 @@ namespace RedUtils
 		public Arrive ArriveAction { get; internal set; }
 
 		/// <summary>The amount of boost we have when starting this action</summary>
-		private readonly int _startBoostAmount = 0;
+		private readonly float _startBoostAmount = 0;
 		/// <summary>The length between updates to the target location, and shot direction</summary>
 		private readonly float _updateInterval = 0.2f;
 		/// <summary>Keeps track of the time since the last update</summary>

@@ -1,12 +1,10 @@
-﻿using RedUtils.Objects;
-using rlbot.flat;
+﻿using RLBot.Flat;
 using System;
-using System.Collections.Generic;
 
 namespace RedUtils
 {
     /// <summary>
-    /// Processed version of the <see cref="rlbot.flat.BallPrediction"/> that uses sane data structures.
+    /// Processed version of the <see cref="BallPredictionT"/> that uses sane data structures.
     /// </summary>
     public struct BallPrediction
     {
@@ -16,11 +14,11 @@ namespace RedUtils
         public BallSlice[] Slices;
         public int Length => Slices.Length;
 
-        public BallPrediction(rlbot.flat.BallPrediction ballPrediction)
+        public BallPrediction(BallPredictionT ballPrediction)
         {
-            Slices = new BallSlice[ballPrediction.SlicesLength];
-            for (int i = 0; i < ballPrediction.SlicesLength; i++)
-                Slices[i] = new BallSlice(ballPrediction.Slices(i).Value);
+            Slices = new BallSlice[ballPrediction.Slices.Count];
+            for (int i = 0; i < ballPrediction.Slices.Count; i++)
+                Slices[i] = new BallSlice(ballPrediction.Slices[i]);
         }
 
         /// <summary>Finds the first ball slice that fits the given predicate 

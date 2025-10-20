@@ -1,6 +1,7 @@
-﻿using System;
-using rlbot.flat;
-using RedUtils.Math;
+﻿using RedUtils.Math;
+using RLBot.Flat;
+using System;
+using System.Linq;
 
 namespace RedUtils
 {
@@ -8,7 +9,7 @@ namespace RedUtils
 	public class Ball
 	{
 		public const float MaxSpeed = 6000;
-		public const float Radius = 92.75f;
+		public const float Radius = 92;
 
 		/// <summary>An instance of the current state of the ball in the game
 		/// <para>Unless you manipulate this object in some way, it is advised to use the static properties to access info on the current ball state</para>
@@ -20,29 +21,29 @@ namespace RedUtils
 		public static Vec3 Velocity { get; private set; }
 		/// <summary>The current angular velocity of the ball in the game</summary>
 		public static Vec3 AngularVelocity { get; private set; }
-		/// <summary>Information on the last touch the ball had with a car</summary>
-		public static BallTouch LatestTouch { get; private set; }
-		/// <summary>A list of slices containing the future positions and velocities of the ball 
-		/// <para>Each slice is 1/60 of a second into the future. Can go 6 seconds into the future max, so a total of 360 slices</para>
-		/// </summary>
-		public static BallPrediction Prediction { get; private set; }
+        /// <summary>Information on the last touch the ball had with a car</summary>
+        public static BallTouch LatestTouch { get; private set; }
+        /// <summary>A list of slices containing the future positions and velocities of the ball 
+        /// <para>Each slice is 1/60 of a second into the future. Can go 6 seconds into the future max, so a total of 360 slices</para>
+        /// </summary>
+        public static BallPrediction Prediction { get; private set; }
 
 		/// <summary>The location of this ball instance
-		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct namen</para>
+		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct name</para>
 		/// </summary>
 		public Vec3 location;
 		/// <summary>The velocity of this ball instance
-		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct namen</para>
+		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct name</para>
 		/// </summary>
 		public Vec3 velocity;
 		/// <summary>The angular velocity of this ball instance. 
-		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct namen</para>
+		/// <para>it should be noted that this variable doesn't follow normal naming conventions, because there is already a static variable with the correct name</para>
 		/// </summary>
 		public Vec3 angularVelocity;
 
 		static Ball()
 		{
-			Location = Vec3.Zero;
+            Location = Vec3.Zero;
 			Velocity = Vec3.Zero;
 			AngularVelocity = Vec3.Zero;
 		}
@@ -55,18 +56,18 @@ namespace RedUtils
 			this.angularVelocity = angularVelocity ?? Vec3.Zero;
 		}
 
-		/// <summary>Updates the static properties with new info from the packet</summary>
-		public static void Update(RUBot bot, BallInfo ballInfo)
-		{
-			Location = ballInfo.Physics.Value.Location.HasValue ? new Vec3(ballInfo.Physics.Value.Location.Value) : Location;
-			Velocity = ballInfo.Physics.Value.Velocity.HasValue ? new Vec3(ballInfo.Physics.Value.Velocity.Value) : Velocity;
-			AngularVelocity = ballInfo.Physics.Value.AngularVelocity.HasValue ? new Vec3(ballInfo.Physics.Value.AngularVelocity.Value) : AngularVelocity;
-			LatestTouch = ballInfo.LatestTouch.HasValue ? new BallTouch(ballInfo.LatestTouch.Value) : null;
-			Prediction = bot.GetBallPrediction();
-		}
+        /// <summary>Updates the static properties with new info from the packet</summary>
+        public static void Update(RUBot bot, BallInfoT ballInfo)
+        {
+            Location = new Vec3(ballInfo.Physics.Location);
+            Velocity = new Vec3(ballInfo.Physics.Velocity);
+            AngularVelocity = new Vec3(ballInfo.Physics.AngularVelocity);
+			LatestTouch = Cars.AllCars.Where(x => x != null && x.LatestTouch != null).OrderByDescending(x => x.LatestTouch.Time).Select(x => x.LatestTouch).FirstOrDefault();
+            Prediction = bot.GetBallPrediction();
+        }
 
-		/// <summary>Predicts the state of this ball instance. Note that this ignores walls and cars</summary>
-		public Ball Predict(float time)
+        /// <summary>Predicts the state of this ball instance. Note that this ignores walls and cars</summary>
+        public Ball Predict(float time)
 		{
 			return new Ball(location + velocity * time + Game.Gravity * 0.5f * time * time, velocity + Game.Gravity * time);
 		}
@@ -82,5 +83,24 @@ namespace RedUtils
 		{
 			return velocity + Game.Gravity * time;
 		}
+
+		/// <summary>
+		/// Finds the last touch on the ball by any car
+		/// </summary>
+		/// <returns></returns>
+		public static BallTouch GetLatestTouch()
+		{
+			float latestTouchTime = float.NegativeInfinity;
+			int latestTouchCar = -1;
+			for (int i = 0; i < Cars.AllCars.Count; ++i)
+			{
+				if (Cars.AllCars[i].LatestTouch.Time > latestTouchTime)
+				{
+					latestTouchCar = i;
+                }
+			}
+			
+			return latestTouchCar >= 0 ? Cars.AllCars[latestTouchCar].LatestTouch : null;
+        }
 	}
 }

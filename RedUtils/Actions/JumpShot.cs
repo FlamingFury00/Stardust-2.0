@@ -1,12 +1,11 @@
 ﻿using RedUtils.Math;
-using RedUtils.Objects;
 using System;
 using System.Drawing;
 
 namespace RedUtils
 {
-    /// <summary>A jump shot action, where the car jumps and dodges into the ball</summary>
-    public class JumpShot : Shot
+	/// <summary>A jump shot action, where the car jumps and dodges into the ball</summary>
+	public class JumpShot : Shot
 	{
 		/// <summary>Whether or not this shot has finished</summary>
 		public override bool Finished { get; internal set; }
@@ -28,7 +27,7 @@ namespace RedUtils
 		public Arrive ArriveAction { get; internal set; }
 
 		/// <summary>The amount of boost we have when starting this action</summary>
-		private readonly int _startBoostAmount = 0;
+		private readonly float _startBoostAmount = 0;
 		/// <summary>The length between updates to the target location, and shot direction</summary>
 		private readonly float _updateInterval = 0.2f;
 		/// <summary>Keeps track of the time since the last update</summary>

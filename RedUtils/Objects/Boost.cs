@@ -1,6 +1,5 @@
-﻿using rlbot.flat;
-using RedUtils.Math;
-using System;
+﻿using RedUtils.Math;
+using RLBot.Flat;
 
 namespace RedUtils
 {
@@ -25,21 +24,21 @@ namespace RedUtils
 			TimeUntilActive = 0;
 		}
 
-		/// <summary>Initializes a new boost pad object with data from the packet</summary>
-		public Boost(int index, BoostPad boostPad)
-		{
-			Index = index;
-			Location = new Vec3(boostPad.Location.Value);
-			IsLarge = boostPad.IsFullBoost;
-			IsActive = true;
-			TimeUntilActive = 0;
-		}
+        /// <summary>Initializes a new boost pad object with data from the packet</summary>
+        public Boost(int index, BoostPadT boostPad)
+        {
+            Index = index;
+            Location = new Vec3(boostPad.Location);
+            IsLarge = boostPad.IsFullBoost;
+            IsActive = true;
+            TimeUntilActive = 0;
+        }
 
-		/// <summary>Updates the boost pad with info from the packet</summary>
-		public void Update(BoostPadState boost)
-		{
-			IsActive = boost.IsActive;
-			TimeUntilActive = boost.Timer;
-		}
-	}
+        /// <summary>Updates the boost pad with info from the packet</summary>
+        public void Update(BoostPadStateT boost)
+        {
+            IsActive = boost.IsActive;
+            TimeUntilActive = boost.Timer;
+        }
+    }
 }

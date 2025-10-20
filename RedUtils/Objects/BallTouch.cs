@@ -1,5 +1,5 @@
 ﻿using RedUtils.Math;
-using rlbot.flat;
+using RLBot.Flat;
 
 namespace RedUtils
 {
@@ -17,17 +17,20 @@ namespace RedUtils
 		/// <summary>The index of the player who collided with the ball</summary>
 		public readonly int PlayerIndex;
 		/// <summary>The team of the player who collided with the ball</summary>
-		public readonly int Team;
+		public readonly uint Team;
+		/// <summary>The index of the ball that was touched</summary>
+		public readonly uint BallIndex;
 
 		/// <summary>Initializes a new ball touch with data from the packet</summary>
-		public BallTouch(Touch touch)
+		public BallTouch(PlayerInfoT player)
 		{
-			Time = touch.GameSeconds;
-			Location = new Vec3(touch.Location.Value);
-			Normal = new Vec3(touch.Normal.Value);
-			PlayerName = touch.PlayerName;
-			PlayerIndex = touch.PlayerIndex;
-			Team = touch.Team;
-		}
+            Time = player.LatestTouch.GameSeconds;
+            Location = new Vec3(player.LatestTouch.Location);
+            Normal = new Vec3(player.LatestTouch.Normal);
+            PlayerName = player.Name;
+            PlayerIndex = player.PlayerId;
+			BallIndex = player.LatestTouch.BallIndex;
+            Team = player.Team;
+        }
 	}
 }
