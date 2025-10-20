@@ -11,7 +11,7 @@ loadout_file = "loadout.toml"
 root_dir = ""
 # The command RLBot will call to start your bot on Windows
 # ex: "bot.exe" for after your bot is compiled (via `dotnet publish`), or `dotnet run`/`dotnet run -c "Release"` during development
-run_command = ".\\Bot\\bin\\Release\\net8.0\\Bot.exe"
+run_command = ".\\src\\Bot\\bin\\Release\\net8.0\\Bot.exe"
 # The command RLBot will call to start your bot on linux
 # If this isn't set, RLBot may attempt to run the Windows command under Wine
 # run_command_linux = "dotnet run --project ./Bot -c \"Release\""

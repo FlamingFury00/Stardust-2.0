@@ -1,0 +1,11 @@
+[[config]]
+# name of the bot
+project_name = "Stardust-2.0"
+# points to the bot toml file
+bot_configs = ["./Stardust.bot.toml"]
+
+[config.builder_config]
+builder_type = "custom"
+dockerfile = "./dockerfile"
+# check the name of the .exe file that is created when you build your bot, put them here
+values = { windows_binary = "Bot.exe", linux_binary = "Bot" }
