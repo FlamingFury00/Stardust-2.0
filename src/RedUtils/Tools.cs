@@ -540,7 +540,7 @@ namespace RedUtils
 
 			// Consider both big and small pads when urgent; prefer big pads when time allows
 			IEnumerable<Boost> candidates = Field.Boosts.Where(b =>
-				(b.IsActive || b.TimeUntilActive < 3f) // near active
+				((b.IsActive && b.IsLarge) || (b.TimeUntilActive < 3f && b.IsLarge)) // near active
 				&& Field.InField(b.Location, 80)
 			);
 

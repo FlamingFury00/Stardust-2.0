@@ -55,45 +55,22 @@ namespace Bot
                 }
 
                 // Attack
-                if ((ShouldAttack() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
+                if (ShouldAttack() && Action == null)
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
                     if (shot != null)
                     {
                         Action = shot;
                     }
-                    else
-                    {
-                        // Safer fallback: arrive to a strong shooting lane instead of QuickShot
-                        Vec3 lane = new Vec3(Utils.Cap(Ball.Location.x, -1500, 1500), Ball.Location.y - 800 * Field.Side(Team), 0);
-                        Action = new Arrive(Me, Field.LimitToNearestSurface(lane), (TheirGoal.Location - Ball.Location).Flatten());
-                    }
                 }
 
-                if ((ShouldAttack() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
-                {
-                    // Second man: do not also take the shot to avoid double commits; support instead
-                    Action = GetSupportingAction();
-                }
-
-                if ((ShouldDefend() && IsClosest(Me, true) && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team != Me.Team && Action == null))
+                if (ShouldDefend() && Action == null)
                 {
                     Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
                     if (shot != null)
                     {
                         Action = shot;
                     }
-                    else
-                    {
-                        // Integrate shadowing behavior when no clear shot/clear is found
-                        Action = new Shadow(Me);
-                    }
-                }
-
-                if ((ShouldDefend() && IsSecondClosest() && GetClosestTeammate().IsGrounded && Action == null) || (Ball.LatestTouch != null && Ball.LatestTouch.Team == Me.Team && Action == null))
-                {
-                    // Second man on defense: hold supporting defensive position
-                    Action = GetSupportingDefenseAction();
                 }
             }
             else
