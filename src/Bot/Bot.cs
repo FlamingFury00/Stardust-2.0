@@ -11,12 +11,12 @@ namespace Bot
         public bool FlipResets { get; init; } = Environment.GetEnvironmentVariable("STARDUST_FLIP_RESETS") == "1";
         public bool Trace { get; init; } = Environment.GetEnvironmentVariable("STARDUST_TRACE") == "1";
     }
-
     public class Stardust : RUBot
     {
         public StardustOptions Options { get; } = new();
         public TacticalFrame Situation { get; private set; } = new();
         public string Decision { get; private set; } = "startup";
+        public int CurrentDefender { get; private set; } = -1;
         public bool Shooting { get; set; }
         private float nextPlan = float.NegativeInfinity;
         private bool defending, pressured, announced;
@@ -24,7 +24,6 @@ namespace Bot
         private DefensiveRead read;
         private int boostTarget = -1;
         public Stardust(string defaultAgentId = null) : base(defaultAgentId) { }
-
         public override void Run()
         {
             if (!announced)
@@ -33,14 +32,16 @@ namespace Bot
                 if (Options.Trace) Console.WriteLine($"stardust options ground={Options.GroundControl} aerial={Options.AerialCarry} experimentalResets={Options.FlipResets}");
             }
             if (ClockReset)
-            { nextPlan = float.NegativeInfinity; defending = false; pressured = false; defensiveShot = null; boostTarget = -1; }
+            {
+                nextPlan = float.NegativeInfinity; defending = false; pressured = false;
+                defensiveShot = null; boostTarget = -1; CurrentDefender = -1;
+            }
             Shooting = Action is Shot;
             if (IsKickoff)
             {
                 if (Action != null) return;
                 int rank = 0;
-                foreach (Car car in LivingTeammates)
-                    if (Tactics.KickoffBefore(car, Me, Ball.Location, Team)) rank++;
+                foreach (Car car in LivingTeammates) if (Tactics.KickoffBefore(car, Me, Ball.Location, Team)) rank++;
                 if (rank == 0) { Action = new Kickoff(); SetDecision("kickoff / taker"); }
                 else
                 {
@@ -50,7 +51,6 @@ namespace Bot
                 }
                 return;
             }
-
             read = Defense.Read(Ball.MainBall, Ball.Prediction.Slices, OurGoal.Location, Team, Cars.AllLivingCars, Game.Time);
             bool dangerChanged = read.Emergency != defending || read.Pressure != pressured;
             if (read.Emergency && !Defense.MayInterrupt(Action, Jump)) return;
@@ -60,22 +60,20 @@ namespace Bot
                 nextPlan = float.NegativeInfinity;
                 if (read.Emergency || (read.Pressure && Action is IPossessionAction)) Action = null;
             }
-            defending = read.Emergency;
-            pressured = read.Pressure;
+            defending = read.Emergency; pressured = read.Pressure;
             if (Action is Shot oldShot && (!oldShot.IsPredictionValid() ||
-                (read.Emergency && !Defense.SaveStillTimely(oldShot, Game.Time, read.GoalTime))))
-                Action = null;
+                (read.Emergency && !Defense.SaveStillTimely(oldShot, Game.Time, read.GoalTime)))) Action = null;
             if (Action == null) nextPlan = MathF.Min(nextPlan, Game.Time);
-            // The urgent fallback target still follows every frame; only expensive searches are throttled.
-            if (read.Emergency && Action is Navigate navigation && navigation.Urgent) navigation.Target = read.BlockTarget;
+            // Only the elected saver's fallback tracks the shot lane. Backups keep their own lanes.
+            if (read.Emergency && CurrentDefender == Index && Action is Navigate navigation && navigation.Urgent)
+                navigation.Target = read.BlockTarget;
             if (Game.Time < nextPlan) return;
             nextPlan = Game.Time + (read.Emergency || read.Pressure ? 0.05f : 0.10f);
             Situation = Tactics.Evaluate(this);
-
             if (read.Emergency)
             {
-                int saver = Defense.Defender(Cars.AllLivingCars, Team, read.BlockTarget);
-                if (saver == Index)
+                CurrentDefender = Defense.Defender(Cars.AllLivingCars, Team, read.BlockTarget);
+                if (CurrentDefender == Index)
                 {
                     if (!ReferenceEquals(Action, defensiveShot) || !Defense.SaveStillTimely(defensiveShot, Game.Time, read.GoalTime))
                         defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
@@ -86,37 +84,32 @@ namespace Bot
                 else
                 {
                     defensiveShot = null;
-                    // A unique saver attacks; the backup covers a separate lane instead of stacking on the saver.
-                    Vec3 backup = TeamShape.Target(Ball.Location, OurGoal.Location, TeamRole.Support,
-                        Index == Situation.Cover ? 0 : 1);
+                    int backupRank = 0;
+                    foreach (Car mate in LivingTeammates) if (mate.Index != CurrentDefender && mate.Index < Index) backupRank++;
+                    float wing = MathF.Abs(Ball.Location.x) > 200 ? -MathF.Sign(Ball.Location.x) : -Field.Side(Team);
+                    Vec3 backup = new(wing * (backupRank == 0 ? 1450 : -1900), Field.Side(Team) * (backupRank == 0 ? 4300 : 3050), 17);
                     Move(backup, 1800, true);
                     SetDecision("defend / separate backup lane");
                 }
                 return;
             }
-            defensiveShot = null;
+            defensiveShot = null; CurrentDefender = -1;
             bool owner = Situation.FirstMan == Index;
             bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
-            if (Action is IPossessionAction && !read.Pressure &&
-                (owner || Me.Location.Dist(Ball.Location) < 260)) return;
+            if (Action is IPossessionAction && !read.Pressure && (owner || Me.Location.Dist(Ball.Location) < 260)) return;
             if (Action is Shot shot && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time) &&
                 (owner || shot.Slice.Time - Game.Time < 0.25f)) return;
             if (!(Action is Navigate)) Action = null;
-
             if (!Me.IsGrounded)
             {
-                if (owner && CanAttemptReset())
-                { Action = new FlipReset(Jump); SetDecision("mechanic / reset approach"); return; }
-                if (owner && !read.Pressure && Options.AerialCarry &&
-                    (Situation.HasCover || Ball.Location.y * Field.Side(Team) < 0) &&
+                if (owner && CanAttemptReset()) { Action = new FlipReset(Jump); SetDecision("mechanic / reset approach"); return; }
+                if (owner && !read.Pressure && Options.AerialCarry && (Situation.HasCover || Ball.Location.y * Field.Side(Team) < 0) &&
                     AerialCarry.CanStart(Me, Ball.MainBall, Situation.OpponentEta))
                 { Action = new AerialCarry(); SetDecision("mechanic / velocity-matched carry"); return; }
                 Shot airborne = owner ? Tactics.SelectShot(this, read.Pressure, Situation.OpponentEta, HasClaim) : null;
                 Action = airborne ?? (IAction)new Recover();
-                SetDecision(airborne == null ? "recover / preserve fuel" : "intercept / airborne");
-                return;
+                SetDecision(airborne == null ? "recover / preserve fuel" : "intercept / airborne"); return;
             }
-
             if (owner && goalSide)
             {
                 Shot attack = Tactics.SelectShot(this, read.Pressure, Situation.OpponentEta, HasClaim);
@@ -124,8 +117,7 @@ namespace Bot
                 { Action = attack; SetDecision(read.Pressure ? "defend / anticipatory clear" : "attack / open shooting lane"); return; }
                 if (!read.Pressure)
                 {
-                    if (Me.Boost < 22 && Situation.FreeTime > 1 && Me.Location.FlatDist(Ball.Location) > 1000 &&
-                        TryBoost(Situation.SupportTarget)) return;
+                    if (Me.Boost < 22 && Situation.FreeTime > 1 && Me.Location.FlatDist(Ball.Location) > 1000 && TryBoost(Situation.SupportTarget)) return;
                     if (Options.GroundControl && GroundDribble.CanStart(Me, Ball.MainBall, Situation.FreeTime))
                     { Action = new GroundDribble(); SetDecision("mechanic / ground carry"); return; }
                     if (Options.GroundControl && Situation.FreeTime > 0.9f && Ball.Location.z > 200 && GroundCatch.FindCatch(Me) != null)
@@ -135,8 +127,7 @@ namespace Bot
                 if (!read.Pressure && Situation.FreeTime > 0.25f)
                 {
                     Vec3 lane = ControlMath.FlatUnit(TheirGoal.Location - Ball.Location, Me.Forward);
-                    Move(Ball.Location - lane * 350, 1410);
-                    SetDecision("possess / controlled approach"); return;
+                    Move(Ball.Location - lane * 350, 1410); SetDecision("possess / controlled approach"); return;
                 }
             }
             Vec3 support = Situation.SupportTarget;
@@ -145,24 +136,18 @@ namespace Bot
             Move(support, read.Pressure ? 2100 : 1410, read.Pressure);
             SetDecision(owner ? "defend / shadow" : $"support / {Situation.Role}");
         }
-
-        public bool CanAttemptReset() => Options.FlipResets && !read.Emergency && !read.Pressure &&
-            Situation.OpponentEta > 1.2f && Me.Boost > 30 &&
-            (Situation.HasCover || (Situation.TeamCount <= 1 && Ball.Location.y * Field.Side(Team) < -1500)) &&
-            FlipReset.CanStart(Me, Ball.MainBall, Jump);
-
+        public bool CanAttemptReset() => Options.FlipResets && !read.Emergency && !read.Pressure && Situation.OpponentEta > 1.2f && Me.Boost > 30 &&
+            (Situation.HasCover || (Situation.TeamCount <= 1 && Ball.Location.y * Field.Side(Team) < -1500)) && FlipReset.CanStart(Me, Ball.MainBall, Jump);
         private bool HasClaim(float time) => HasTeammateEarlierShot(time);
         private bool TryBoost(Vec3 destination)
         {
-            Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team,
-                Situation.OpponentEta, cars: Cars.AllLivingCars, pressure: read.Pressure, preferred: boostTarget);
+            Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team, Situation.OpponentEta,
+                cars: Cars.AllLivingCars, pressure: read.Pressure, preferred: boostTarget);
             if (pad == null) { boostTarget = -1; return false; }
             boostTarget = pad.Index;
             Move(pad.Location, 1410);
-            // Pad pickup needs crossing its center, not stopping 85 uu short of it.
             ((Navigate)Action).StopAtTarget = false;
-            SetDecision(pad.IsLarge ? "boost / covered full pickup" : "boost / small-pad route");
-            return true;
+            SetDecision(pad.IsLarge ? "boost / covered full pickup" : "boost / small-pad route"); return true;
         }
         private void Move(Vec3 target, float speed, bool urgent = false)
         {
@@ -179,8 +164,8 @@ namespace Bot
                 $"stardust t={Game.Time:F3} car={Index} decision={Decision} role={Situation.Role} boost={Me.Boost:F0} eta={Situation.MyEta:F2} opponent={Situation.OpponentEta:F2}"));
         }
         public bool IsBack() => CanDefend(Me, OurGoal.Location) || Situation.FirstMan == Index;
-        public static bool CanBlock(Car car, Vec3 location) =>
-            ControlMath.Unit(location - car.Location, Vec3.Up).Dot(ControlMath.Unit(car.Location - Ball.Location, Vec3.Up)) > 0.7f;
+        public static bool CanBlock(Car car, Vec3 location) => ControlMath.Unit(location - car.Location, Vec3.Up)
+            .Dot(ControlMath.Unit(car.Location - Ball.Location, Vec3.Up)) > 0.7f;
         public static bool CanDefend(Car car, Vec3 location)
         {
             if (CanBlock(car, location)) return true;
