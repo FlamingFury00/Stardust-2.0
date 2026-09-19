@@ -325,7 +325,7 @@ Test("aerial carry: availability respects boost and relative speed", () =>
 });
 Test("reset: entry requires an already spent flip", () =>
 {
-    var car = AirCar(); var ball = new Ball(new Vec3(80, 0, 650), car.Velocity);
+    var car = AirCar(); var ball = new Ball(new Vec3(80, 0, 750), car.Velocity);
     Check(FlipReset.CanStart(car, ball, Jump(true, true)));
     Check(!FlipReset.CanStart(car, ball, Jump()));
     car.Boost = 5; Check(!FlipReset.CanStart(car, ball, Jump(true, true)));
