@@ -5,7 +5,7 @@ using RedUtils.Math;
 
 namespace Bot
 {
-    /// <summary>Conservative shot selection. Geometric margins are not a calibrated scoring probability.</summary>
+    /// <summary>Geometric margins and conservative reachability, not a calibrated scoring probability.</summary>
     public static class ShotPlanner
     {
         public const int CandidateBudget = 96;
@@ -18,28 +18,21 @@ namespace Bot
             {
                 if (slice == null || !float.IsFinite(slice.Time) || !ControlMath.Finite(slice.Location) ||
                     !ControlMath.Finite(slice.Velocity) || slice.Time < next) continue;
-                if (slice.Time > deadline || slice.Time > now + 3 || MathF.Abs(slice.Location.y) > 5250 ||
-                    count >= CandidateBudget) yield break;
+                if (slice.Time > deadline || slice.Time > now + 3 || MathF.Abs(slice.Location.y) > 5250 || count >= CandidateBudget) yield break;
                 yield return slice;
                 count++;
                 float t = slice.Time - now;
                 next = slice.Time + (t < 0.4f ? 0.007f : t < 1.4f ? 0.032f : 0.065f);
             }
         }
-
-        public static Vec3 InteriorTarget(Vec3 target, Vec3 goal) => new(
-            System.Math.Clamp(target.x, goal.x - 620, goal.x + 620), goal.y,
-            System.Math.Clamp(target.z, 160, 450));
-
-        public static bool DeadlineAllows(float intercept, float now, float goalTime) =>
-            float.IsFinite(intercept) && intercept > now && intercept < now + goalTime - 0.035f;
-
+        public static Vec3 InteriorTarget(Vec3 target, Vec3 goal) => new(System.Math.Clamp(target.x, goal.x - 620, goal.x + 620),
+            goal.y, System.Math.Clamp(target.z, 160, 450));
+        public static bool DeadlineAllows(float intercept, float now, float goalTime) => float.IsFinite(intercept) &&
+            intercept > now && intercept < now + goalTime - 0.035f;
         public static bool ContactFeasible(Shot shot, Car car, float remaining)
         {
             if (shot == null || remaining <= 0 || !ControlMath.Finite(shot.TargetLocation) ||
                 !ControlMath.Finite(shot.ShotDirection) || !shot.IsValid(car)) return false;
-            // GroundShot.IsValid used straight travel ETA while its actual executor uses an oriented arrival.
-            // The executor's path, not merely distance to the ball, must fit the time budget.
             if (shot is GroundShot ground)
             {
                 float arrival = ground.ArriveAction.Eta(car);
@@ -47,7 +40,6 @@ namespace Bot
             }
             return true;
         }
-
         public static Shot Select(RUBot bot, bool emergency, float opponentEta, Func<float, bool> claimed)
         {
             BallSlice[] slices = Ball.Prediction.Slices;
@@ -65,24 +57,24 @@ namespace Bot
                 if (bot.Me.Location.Dist(slice.Location) > Car.MaxSpeed * t + 180) continue;
                 Ball after = slice.ToBall();
                 Vec3 approach = ((slice.Location - bot.Me.Location) / t).Cap(0, Car.MaxSpeed);
-                // Restore the lateral-velocity model used by the original shot selector.
                 after.velocity = approach + slice.Velocity.Flatten(ControlMath.Unit(approach, bot.Me.Forward)) * 0.8f;
                 Vec3 destination = region.Clamp(after);
                 if (!ControlMath.Finite(destination)) continue;
                 if (!emergency) destination = InteriorTarget(destination, bot.TheirGoal.Location);
                 Shot candidate = new GroundShot(bot.Me, slice, destination);
                 float cost = 0;
-                if (!ContactFeasible(candidate, bot.Me, t)) { candidate = new JumpShot(bot.Me, slice, destination); cost = 0.08f; }
-                if (!ContactFeasible(candidate, bot.Me, t)) { candidate = new DoubleJumpShot(bot.Me, slice, destination); cost = 0.18f; }
-                if (!ContactFeasible(candidate, bot.Me, t))
+                bool valid = ContactFeasible(candidate, bot.Me, t);
+                if (!valid) { candidate = new JumpShot(bot.Me, slice, destination); cost = 0.08f; valid = ContactFeasible(candidate, bot.Me, t); }
+                if (!valid) { candidate = new DoubleJumpShot(bot.Me, slice, destination); cost = 0.18f; valid = ContactFeasible(candidate, bot.Me, t); }
+                if (!valid)
                 {
-                    // Optional offense should leave some fuel for the recovery. A save can spend the reserve.
                     Car budgetCar = new(bot.Me);
                     if (!emergency) budgetCar.Boost = MathF.Max(0, budgetCar.Boost - 12);
-                    candidate = new AerialShot(budgetCar, slice, destination); cost = 0.32f;
-                    if (!ContactFeasible(candidate, budgetCar, t)) continue;
+                    // The executor snapshots actual starting fuel. Use reduced fuel only for feasibility.
+                    candidate = new AerialShot(bot.Me, slice, destination); cost = 0.32f;
+                    valid = ContactFeasible(candidate, budgetCar, t);
                 }
-                if (!ContactFeasible(candidate, bot.Me, t)) continue;
+                if (!valid) continue;
                 float approachAlignment = ControlMath.FlatUnit(slice.Location - bot.Me.Location, bot.Me.Forward)
                     .Dot(ControlMath.FlatUnit(candidate.ShotDirection, bot.Me.Forward));
                 float score = -t - (emergency ? cost * 0.1f : cost + 0.15f * (1 - approachAlignment));
@@ -91,7 +83,6 @@ namespace Bot
             }
             return best;
         }
-
         public static bool OpenLane(Shot shot, IEnumerable<Car> opponents)
         {
             if (shot == null || shot.Slice.Time - Game.Time > 1.15f) return false;
