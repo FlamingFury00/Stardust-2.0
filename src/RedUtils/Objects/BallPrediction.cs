@@ -1,73 +1,72 @@
-﻿using RLBot.Flat;
 using System;
+using RedUtils.Math;
+using RLBot.Flat;
 
 namespace RedUtils
 {
-    /// <summary>
-    /// Processed version of the <see cref="BallPredictionT"/> that uses sane data structures.
-    /// </summary>
+    /// <summary>Prediction samples retain framework timestamps; no fixed 60/120 Hz assumption.</summary>
     public struct BallPrediction
     {
-        public BallSlice this[int index] { get { return Slices[index]; } }
-
-        /// <summary>A list of all of the future ball slices</summary>
         public BallSlice[] Slices;
-        public int Length => Slices.Length;
-
-        public BallPrediction(BallPredictionT ballPrediction)
+        public int Length => Slices?.Length ?? 0;
+        public BallSlice this[int index] => Slices[index];
+        public BallPrediction(BallPredictionT prediction)
         {
-            Slices = new BallSlice[ballPrediction.Slices.Count];
-            for (int i = 0; i < ballPrediction.Slices.Count; i++)
-                Slices[i] = new BallSlice(ballPrediction.Slices[i]);
+            int count = prediction?.Slices?.Count ?? 0;
+            Slices = new BallSlice[count];
+            for (int i = 0; i < count; i++) Slices[i] = new BallSlice(prediction.Slices[i]);
         }
-
-        /// <summary>Finds the first ball slice that fits the given predicate 
-        /// <para>This function is more effecient then the normal "Find" function, and accounts for scoring</para>
-        /// </summary>
         public BallSlice Find(Predicate<BallSlice> predicate)
         {
-            if (Length > 0)
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            // Old coarse refinement skipped the successful coarse sample itself and the tail.
+            // Expensive feasibility checks must explicitly budget their search in their caller.
+            for (int i = 0; i < Length; i++)
             {
-                for (int i = 6; i < Length; i += 6)
-                {
-                    if (predicate(Slices[i]))
-                    {
-                        for (int j = i - 6; j < i; j++)
-                        {
-                            if (MathF.Abs(Slices[j].Location.y) > 5250) break;
-                            if (predicate(Slices[j]))
-                            {
-                                return Slices[j];
-                            }
-                        }
-                    }
-                    else if (MathF.Abs(Slices[i].Location.y) > 5250) break;
-                }
+                BallSlice slice = Slices[i];
+                if (slice == null) continue;
+                if (MathF.Abs(slice.Location.y) > 5250) break;
+                if (predicate(slice)) return slice;
             }
-
             return null;
         }
-        
-        /// <summary>Finds the first ball slice that is scoring in favor of the parameter team </summary>
         public BallSlice FindGoal(int team)
         {
-            int otherSide = -Field.Side(team);
-            if (Length > 0)
-            {
-                for (int i = 6; i < Length; i += 6)
-                {
-                    if (Slices[i].Location.y * otherSide > 5250)
-                    {
-                        for (int j = i - 6; j < i; j++)
-                        {
-                            if (Slices[j].Location.y * otherSide > 5250) 
-                                return Slices[j];
-                        }
-                    }
-                }
-            }
-
+            int scoringSide = -Field.Side(team);
+            for (int i = 0; i < Length; i++)
+                if (Slices[i] != null && Slices[i].Location.y * scoringSide > 5250) return Slices[i];
             return null;
         }
+
+        /// <summary>Interpolate on a sorted framework prediction; never extrapolate past either endpoint.</summary>
+        public bool TrySample(float time, out Ball sample)
+        {
+            sample = null;
+            if (!float.IsFinite(time) || Length == 0 || Slices[0] == null || Slices[Length - 1] == null) return false;
+            if (time < Slices[0].Time || time > Slices[Length - 1].Time) return false;
+            int low = 0, high = Length - 1;
+            while (low < high)
+            {
+                int mid = low + (high - low) / 2;
+                if (Slices[mid] == null) return false;
+                if (Slices[mid].Time < time) low = mid + 1;
+                else high = mid;
+            }
+            BallSlice right = Slices[low];
+            if (right == null || !float.IsFinite(right.Time)) return false;
+            if (right.Time == time) { sample = right.ToBall(); return Finite(sample); }
+            if (low == 0) return false;
+            BallSlice left = Slices[low - 1];
+            if (left == null) return false;
+            float duration = right.Time - left.Time;
+            if (!float.IsFinite(duration) || duration <= 0) return false;
+            float fraction = (time - left.Time) / duration;
+            sample = new Ball(Utils.Lerp(fraction, left.Location, right.Location),
+                Utils.Lerp(fraction, left.Velocity, right.Velocity),
+                Utils.Lerp(fraction, left.AngularVelocity, right.AngularVelocity));
+            return Finite(sample);
+        }
+        private static bool Finite(Ball ball) => Finite(ball.location) && Finite(ball.velocity) && Finite(ball.angularVelocity);
+        private static bool Finite(Vec3 v) => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
     }
 }
