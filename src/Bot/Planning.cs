@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using RedUtils;
 using RedUtils.Math;
 
@@ -7,32 +8,51 @@ namespace Bot
     public sealed class TacticalFrame
     {
         public float MyEta, OpponentEta = 6, TeammateEta = 6;
-        public int FirstMan;
-        public bool LastBack;
+        public int FirstMan, Cover, TeamCount;
+        public bool LastBack, HasCover;
+        public TeamRole Role;
+        public Vec3 SupportTarget;
         public float FreeTime => OpponentEta - MyEta;
     }
 
     public static class Tactics
     {
-        /// <summary>Conservative goal-mouth crossing detector, using prediction timestamps rather than indices.</summary>
         public static float GoalThreat(BallSlice[] slices, Vec3 goal, float now, float horizon = 2.5f)
         {
             if (slices == null) return float.PositiveInfinity;
             float side = goal.y < 0 ? -1 : 1;
-            for (int i = 0; i < slices.Length; i++)
+            BallSlice previous = null;
+            foreach (BallSlice b in slices)
             {
-                BallSlice b = slices[i];
-                if (b == null || b.Time < now) continue;
+                if (b == null || !float.IsFinite(b.Time) || !ControlMath.Finite(b.Location)) continue;
+                if (b.Time < now) { previous = b; continue; }
                 if (b.Time > now + horizon) break;
-                if (b.Location.y * side >= MathF.Abs(goal.y) &&
-                    MathF.Abs(b.Location.x - goal.x) < Goal.Width / 2 + Ball.Radius &&
-                    b.Location.z < Goal.Height + Ball.Radius) return b.Time - now;
+                if (b.Location.y * side >= MathF.Abs(goal.y))
+                {
+                    Vec3 crossing = b.Location;
+                    float time = b.Time;
+                    if (previous != null && previous.Location.y * side < MathF.Abs(goal.y))
+                    {
+                        float fraction = (goal.y - previous.Location.y) / (b.Location.y - previous.Location.y);
+                        crossing = previous.Location + (b.Location - previous.Location) * fraction;
+                        time = previous.Time + (b.Time - previous.Time) * fraction;
+                    }
+                    if (time >= now && MathF.Abs(crossing.x - goal.x) < Goal.Width / 2 + Ball.Radius &&
+                        crossing.z >= -Ball.Radius && crossing.z < Goal.Height + Ball.Radius) return time - now;
+                }
+                previous = b;
             }
             return float.PositiveInfinity;
         }
 
-        public static bool WinsTie(float eta, int index, float otherEta, int otherIndex, float margin = 0.08f) =>
-            eta < otherEta - margin || (MathF.Abs(eta - otherEta) <= margin && index < otherIndex);
+        /// <summary>Lexicographic quantized ETA order is transitive. Pairwise epsilon ties are not.</summary>
+        public static bool WinsTie(float eta, int index, float otherEta, int otherIndex, float margin = 0.08f)
+        {
+            double width = float.IsFinite(margin) && margin > 0 ? margin : 0.08;
+            double a = float.IsFinite(eta) ? System.Math.Floor(eta / width) : double.PositiveInfinity;
+            double b = float.IsFinite(otherEta) ? System.Math.Floor(otherEta / width) : double.PositiveInfinity;
+            return a < b || (a == b && index < otherIndex);
+        }
 
         public static bool KickoffBefore(Car a, Car b, Vec3 ball, int team)
         {
@@ -47,85 +67,48 @@ namespace Bot
         {
             if (car.IsDemolished) return 6;
             if (car.Location.Dist(Ball.Location) < 180 && (car.Velocity - Ball.Velocity).Length() < 600) return 0.05f;
-            float next = Game.Time + 0.1f;
+            float next = Game.Time + 0.05f;
             BallSlice[] slices = Ball.Prediction.Slices;
             if (slices != null)
                 foreach (BallSlice slice in slices)
                 {
                     if (slice == null || slice.Time < next) continue;
                     float t = slice.Time - Game.Time;
-                    if (t > 3.5f) break;
-                    next = slice.Time + 0.15f;
-                    // This is a ground-race estimate, not an aerial feasibility proof.
+                    if (t > 3.5f || MathF.Abs(slice.Location.y) > 5250) break;
+                    next = slice.Time + 0.1f;
                     if (slice.Location.z > 300) continue;
-                    float eta = Drive.GetEta(car, slice.Location);
+                    float eta = Drive.GetEta(car, slice.Location, false);
                     if (float.IsFinite(eta) && eta <= t) return t;
                 }
-            float fallback = Drive.GetEta(car, Ball.Location);
+            float fallback = Drive.GetEta(car, Ball.Location, false);
             return float.IsFinite(fallback) ? System.Math.Clamp(fallback, 0.05f, 6) : 6;
         }
 
         public static TacticalFrame Evaluate(RUBot bot)
         {
-            var result = new TacticalFrame { MyEta = GroundEta(bot.Me), FirstMan = bot.Index, LastBack = true };
-            float best = result.MyEta;
-            int side = Field.Side(bot.Team);
+            var etas = new Dictionary<int, float>();
+            foreach (Car car in Cars.AllLivingCars) etas[car.Index] = GroundEta(car);
+            TeamAssignment assignment = TeamShape.Assign(Cars.AllLivingCars, bot.Team, Ball.Location, car => etas[car.Index]);
+            var result = new TacticalFrame { MyEta = etas.TryGetValue(bot.Index, out float own) ? own : 6,
+                FirstMan = assignment.FirstMan, Cover = assignment.Cover, LastBack = assignment.LastBack == bot.Index,
+                TeamCount = assignment.Count, HasCover = TeamShape.HasCover(Cars.AllLivingCars, bot.Me, Ball.Location, bot.Team),
+                Role = assignment.Roles.TryGetValue(bot.Index, out TeamRole role) ? role : TeamRole.Cover,
+                SupportTarget = assignment.Targets.TryGetValue(bot.Index, out Vec3 target) ? target :
+                    TeamShape.Target(Ball.Location, bot.OurGoal.Location, TeamRole.Cover) };
             foreach (Car car in Cars.AllLivingCars)
             {
                 if (car.Index == bot.Index) continue;
-                float eta = GroundEta(car);
-                if (car.Team != bot.Team) { result.OpponentEta = MathF.Min(result.OpponentEta, eta); continue; }
-                result.TeammateEta = MathF.Min(result.TeammateEta, eta);
-                if (car.Location.y * side > bot.Me.Location.y * side + 100) result.LastBack = false;
-                if (WinsTie(eta, car.Index, best, result.FirstMan)) { best = eta; result.FirstMan = car.Index; }
+                if (car.Team != bot.Team) result.OpponentEta = MathF.Min(result.OpponentEta, etas[car.Index]);
+                else result.TeammateEta = MathF.Min(result.TeammateEta, etas[car.Index]);
             }
             return result;
         }
 
-        public static Vec3 ShadowTarget(Vec3 ball, Vec3 ownGoal, bool lastBack)
-        {
-            Vec3 target = ball + ControlMath.FlatUnit(ownGoal - ball, new Vec3(0, ownGoal.y < 0 ? -1 : 1, 0)) *
-                (lastBack ? 1400 : 1000);
-            float side = ownGoal.y < 0 ? -1 : 1;
-            if (ball.y * side > 3400)
-                target = new Vec3(ball.x > 0 ? -750 : 750, side * 4700, 17);
-            return new Vec3(System.Math.Clamp(target.x, -3300, 3300), System.Math.Clamp(target.y, -4800, 4800), 17);
-        }
+        // Compatibility helper: even deep defense must give the two roles different locations.
+        public static Vec3 ShadowTarget(Vec3 ball, Vec3 ownGoal, bool lastBack) =>
+            TeamShape.Target(ball, ownGoal, lastBack ? TeamRole.Cover : TeamRole.Support);
 
-        /// <summary>Bounded search. Expensive shot solvers run at tactical cadence, never at 120 Hz.</summary>
-        public static Shot SelectShot(RUBot bot, bool emergency, float opponentEta, Func<float, bool> claimed)
-        {
-            BallSlice[] slices = Ball.Prediction.Slices;
-            if (slices == null || slices.Length == 0) return null;
-            Target target = new Target(emergency ? bot.OurGoal : bot.TheirGoal, emergency);
-            float next = Game.Time + 0.08f, bestScore = float.NegativeInfinity;
-            int evaluated = 0;
-            Shot best = null;
-            foreach (BallSlice slice in slices)
-            {
-                if (slice == null || slice.Time < next) continue;
-                float t = slice.Time - Game.Time;
-                if (t > 3 || evaluated >= 48) break;
-                next = slice.Time + 0.06f;
-                evaluated++;
-                if (!target.Fits(slice.Location) || (!emergency && claimed(slice.Time))) continue;
-                if (!emergency && opponentEta < 1.5f && t > opponentEta + 0.35f) continue;
-                Ball after = slice.ToBall();
-                Vec3 approach = (slice.Location - bot.Me.Location) / t;
-                after.velocity = approach.Cap(0, Car.MaxSpeed) + slice.Velocity * 0.25f;
-                Vec3 destination = target.Clamp(after);
-                if (!ControlMath.Finite(destination)) continue;
-                Shot candidate = new GroundShot(bot.Me, slice, destination);
-                float cost = 0;
-                if (!candidate.IsValid(bot.Me)) { candidate = new JumpShot(bot.Me, slice, destination); cost = 0.15f; }
-                if (!candidate.IsValid(bot.Me)) { candidate = new DoubleJumpShot(bot.Me, slice, destination); cost = 0.4f; }
-                if (!candidate.IsValid(bot.Me)) { candidate = new AerialShot(bot.Me, slice, destination); cost = 0.8f; }
-                if (!candidate.IsValid(bot.Me)) continue;
-                float score = -t - cost - MathF.Max(0, t - opponentEta) * (emergency ? 0 : 2);
-                if (score > bestScore) { best = candidate; bestScore = score; }
-                if (best != null && t > best.Slice.Time - Game.Time + 0.3f) break;
-            }
-            return best;
-        }
+        public static Shot SelectShot(RUBot bot, bool emergency, float opponentEta, Func<float, bool> claimed) =>
+            ShotPlanner.Select(bot, emergency, opponentEta, claimed);
     }
 }
