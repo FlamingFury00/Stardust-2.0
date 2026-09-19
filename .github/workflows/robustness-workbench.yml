@@ -1,0 +1,47 @@
+name: Temporary robustness workbench
+on:
+  push:
+    branches: [fix/stardust-3-robustness]
+    paths: [.github/workflows/robustness-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  workbench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore baseline
+        run: |
+          chmod +x src/generate-flatbuffers.sh src/flatbuffers-schema/binaries/flatc
+          dotnet build src/Bot/Bot.csproj -c Release
+      - name: Package public sources and offline compiler (no credentials)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/kit/repo" "$RUNNER_TEMP/kit/dotnet" "$RUNNER_TEMP/kit/nuget"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/kit/repo"
+          export KIT="$RUNNER_TEMP/kit"
+          python3 - <<'PY'
+          import os, pathlib, shutil
+          root = pathlib.Path('/usr/share/dotnet')
+          dest = pathlib.Path(os.environ['KIT']) / 'dotnet'
+          shutil.copy2(root / 'dotnet', dest / 'dotnet')
+          for family in ('host/fxr', 'sdk', 'shared/Microsoft.NETCore.App', 'shared/Microsoft.AspNetCore.App', 'packs/Microsoft.NETCore.App.Ref', 'packs/Microsoft.AspNetCore.App.Ref', 'packs/Microsoft.NETCore.App.Host.linux-x64'):
+              versions = sorted((root / family).glob('8.*'))
+              for version in versions:
+                  shutil.copytree(version, dest / family / version.name, dirs_exist_ok=True)
+          packages = pathlib.Path.home() / '.nuget/packages'
+          if packages.exists(): shutil.copytree(packages, pathlib.Path(os.environ['KIT']) / 'nuget', dirs_exist_ok=True)
+          PY
+          tar -czf "$RUNNER_TEMP/robustness-kit.tgz" -C "$RUNNER_TEMP/kit" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robustness-offline-kit
+          path: ${{ runner.temp }}/robustness-kit.tgz
+          retention-days: 1
+          compression-level: 0
