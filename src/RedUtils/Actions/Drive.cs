@@ -67,7 +67,7 @@ namespace RedUtils
                 if (bot.Me.IsGrounded || bot.Me.Velocity.FlatLen() < 500)
                 {
                     float[] angles = bot.AimAt(finalTarget, backwards: Backwards);
-                    // AimAt returns [pitch, yaw, roll]. Ground steering and thrust need ABSOLUTE yaw, not pitch.
+                    // AimAt returns [pitch, yaw, roll]. Ground steering and thrust need absolute yaw.
                     angleToTarget = bot.Me.IsGrounded ? MathF.Abs(angles[1]) : bot.Me.Forward.Angle(finalTarget - bot.Me.Location);
                 }
                 else
@@ -129,7 +129,6 @@ namespace RedUtils
 
         public float Distance(Car car) => GetDistance(car, Target, Backwards);
         public float Eta(Car car) => GetEta(car, Target, Backwards, AllowDodges);
-
         private static Surface FindNextSurface(Vec3 start, Vec3 target)
         {
             Vec3 middle = Field.LimitToNearestSurface((start + target) / 2);
@@ -140,7 +139,6 @@ namespace RedUtils
             }
             return Field.NearestSurface(target);
         }
-
         private static Vec3 FindTargetAroundCorner(RUBot bot, Vec3 finalTarget, Surface nextSurface)
         {
             Surface mySurface = Field.NearestSurface(bot.Me.Location);
@@ -175,8 +173,8 @@ namespace RedUtils
                 }
                 else if (mySurface.Key.Contains("Right Backwall"))
                 {
-                    leftDirection = bot.Me.Location.Direction(goal.TopLeftCorner + new Vec3(MathF.Sign(goal.TopLeftCorner.x) * 50, 0, 50));
-                    rightDirection = bot.Me.Location.Direction(goal.BottomLeftCorner + new Vec3(MathF.Sign(goal.BottomLeftCorner.x) * 50, 0, -50));
+                    leftDirection = bot.Me.Location.Direction(goal.BottomLeftCorner + new Vec3(MathF.Sign(goal.BottomLeftCorner.x) * 50, 0, -50));
+                    rightDirection = bot.Me.Location.Direction(goal.TopLeftCorner + new Vec3(MathF.Sign(goal.TopLeftCorner.x) * 50, 0, 50));
                 }
                 else
                 {
@@ -194,7 +192,6 @@ namespace RedUtils
             car.Forward.Dot(car.Velocity) < 500 && car.Forward.FlatAngle(car.Location.Direction(target), car.Up) > MathF.PI * 0.6f;
         public static float GetDistance(Car car, Vec3 target) => GetDistance(car, target, PreferReverse(car, target));
         public static float GetDistance(Car car, Vec3 target, bool backwards) => GetDistance(car, target, backwards, out _, out _);
-
         public static float GetDistance(Car car, Vec3 target, bool backwards, out float angle, out float radius)
         {
             target = Field.LimitToNearestSurface(target);
@@ -207,10 +204,10 @@ namespace RedUtils
             angle = (backwards ? -carForward : carForward).FlatAngle(target - carPos, surfaceNormal);
             float turnSpeed = backwards ? SpeedAfterTurn(-currentSpeed, angle, 0.4f) : SpeedAfterTurn(currentSpeed, angle, 0.5f);
             radius = TurnRadius(turnSpeed);
-            // A straight segment has no turn center offset. Its length must not shrink by a phantom radius.
-            if (carPos.Dist(target) < 0.01f) { angle = 0; return 0; }
+            if (carSurface.Limit(carPos).Dist(target) < 0.01f) { angle = 0; return 0; }
+            // Both endpoints belong on the driving surface, not one endpoint at the chassis center.
             if (angle < 0.0001f && Field.NearestSurface(target).Key == carSurface.Key)
-            { angle = 0; return carPos.Dist(target); }
+            { angle = 0; return carSurface.Limit(carPos).Dist(target); }
             Vec3 nearestTurnCenter = carPos + carRight * MathF.Sign(carRight.Dot(target - carPos)) * radius;
             Vec3 limitedTurnCenter = carSurface.Limit(nearestTurnCenter);
             if (nearestTurnCenter.Dist(limitedTurnCenter) > 1)
@@ -231,7 +228,6 @@ namespace RedUtils
             angle = Utils.Cap(angle, 0, 2 * MathF.PI);
             return MathF.Sqrt(MathF.Max(MathF.Pow(distance, 2) - MathF.Pow(radius, 2), 0)) + radius * angle;
         }
-
         public static float GetEta(Car car, Vec3 target) => GetEta(car, target, PreferReverse(car, target), true);
         public static float GetEta(Car car, Vec3 target, bool allowDodges) => GetEta(car, target, PreferReverse(car, target), allowDodges);
         public static float GetEta(Car car, Vec3 target, bool backwards, bool allowDodges)
@@ -246,11 +242,8 @@ namespace RedUtils
             float landingTime = car.PredictLandingTime();
             if (!float.IsFinite(landingTime) || landingTime < 0) return float.PositiveInfinity;
             float exitSpeed = angle < 0.001f ? currentSpeed : MathF.Min(SpeedFromTurnRadius(radius), SpeedAfterTurn(currentSpeed, angle, backwards ? 0.8f : 1));
-            // Do not assume a stationary car is already driving at 1400, or count an unexecuted dodge.
-            return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) +
-                DrivePhysics.TravelTime(distance, exitSpeed, car.Boost, backwards);
+            return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) + DrivePhysics.TravelTime(distance, exitSpeed, car.Boost, backwards);
         }
-
         public static float TurnRadius(Car car, Vec3 target)
         {
             float distance = Field.DistanceBetweenPoints(car.Location, target);

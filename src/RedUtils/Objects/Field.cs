@@ -34,8 +34,8 @@ namespace RedUtils
 				{ "Orange Right Backwall", new Surface("Orange Right Backwall", new Vec3(Width / 4 + Goal.Width / 2 - CornerWidth + 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
 				{ "Orange Left Backwall", new Surface("Orange Left Backwall", new Vec3(-Width / 4 - Goal.Width / 2 + CornerWidth - 200, Length / 2, Height / 2), new Vec3(0, -1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
 				{ "Blue Backboard", new Surface("Blue Backboard", new Vec3(0, -Length / 2, Height / 2 + Goal.Height / 2), new Vec3(0, 1, 0), new Vec3(Goal.Width, Height - Goal.Height), Vec3.X, Vec3.Z) },
-				{ "Blue Right Backwall", new Surface("Blue Right Backwall", new Vec3(-Width / 4 - Goal.Width / 2 + CornerWidth + 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
-				{ "Blue Left Backwall", new Surface("Blue Left Backwall", new Vec3(Width / 4 + Goal.Width / 2 - CornerWidth - 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
+				{ "Blue Right Backwall", new Surface("Blue Right Backwall", new Vec3(-Width / 4 - Goal.Width / 2 + CornerWidth - 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
+				{ "Blue Left Backwall", new Surface("Blue Left Backwall", new Vec3(Width / 4 + Goal.Width / 2 - CornerWidth + 200, -Length / 2, Height / 2), new Vec3(0, 1, 0), new Vec3(Width / 2 - Goal.Width / 2 - CornerWidth, Height), Vec3.X, Vec3.Z) },
 				{ "Right Orange Sidewall", new Surface("Right Orange Sidewall", new Vec3(Width / 2, 0, Height / 2), new Vec3(-1, 0, 0), new Vec3(Height, Length), Vec3.Z, Vec3.Y) },
 				{ "Right Blue Sidewall", new Surface("Right Blue Sidewall", new Vec3(-Width / 2, 0, Height / 2), new Vec3(1, 0, 0), new Vec3(Height, Length), Vec3.Z, Vec3.Y) },
 				{ "Right Orange Corner", new Surface("Right Orange Corner",new Vec3(Width / 2 - CornerWidth / 2, Length / 2 - CornerWidth / 2, Height / 2), new Vec3(-MathF.Sqrt(2) / 2, -MathF.Sqrt(2) / 2, 0), new Vec3(CornerLength, Height), new Vec3(-MathF.Sqrt(2) / 2, MathF.Sqrt(2) / 2, 0), Vec3.Z) },
@@ -57,16 +57,13 @@ namespace RedUtils
             for (int i = 0; i < fieldInfo.BoostPads.Count; i++)
                 Boosts.Add(fieldInfo.BoostPads[i] != null ? new Boost(i, fieldInfo.BoostPads[i]) : new Boost(i));
         }
-
         public static void Update(GamePacketT packet)
         {
             if (packet?.BoostPads == null) return;
             for (int i = 0; i < System.Math.Min(packet.BoostPads.Count, Boosts.Count); i++)
                 Boosts[i].Update(packet.BoostPads[i]);
         }
-
         public static int Side(int team) => 2 * team - 1;
-
 		public static bool InField(Vec3 pos, float radius)
 		{
 			Vec3 point = Vec3.Abs(pos);
@@ -130,7 +127,6 @@ namespace RedUtils
 			return startPos.Dist(startSurface.Limit(middlePos)) + startSurface.Limit(middlePos).Dist(middleSurface.Limit(targetPos)) + middleSurface.Limit(targetPos).Dist(targetPos);
 		}
 	}
-
 	public class Surface
 	{
 		public string Key { get; private set; }

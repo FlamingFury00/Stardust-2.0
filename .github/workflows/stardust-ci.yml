@@ -31,5 +31,4 @@ jobs:
       - name: Reproduce reported robustness failures
         run: dotnet run --project tests/Stardust.BugRepro/Stardust.BugRepro.csproj --configuration Release
       - name: Run robustness scenarios
-        if: ${{ hashFiles('tests/Stardust.Robustness/Stardust.Robustness.csproj') != '' }}
         run: dotnet run --project tests/Stardust.Robustness/Stardust.Robustness.csproj --configuration Release
