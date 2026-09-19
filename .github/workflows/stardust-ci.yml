@@ -25,5 +25,4 @@ jobs:
       - name: Build bot
         run: dotnet build src/Bot/Bot.csproj --configuration Release
       - name: Run deterministic regressions
-        if: ${{ hashFiles('tests/Stardust.Tests/Stardust.Tests.csproj') != '' }}
         run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release

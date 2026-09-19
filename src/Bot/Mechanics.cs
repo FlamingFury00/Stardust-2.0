@@ -11,15 +11,13 @@ namespace Bot
         public bool Finished { get; private set; }
         public bool Interruptible => true;
         public float ClaimTime => Game.Time + 0.25f;
-
         public static bool CanStart(Car car, Ball ball, float freeTime)
         {
             Vec3 local = car.Local(ball.location - car.Location);
-            return car.IsGrounded && car.Up.z > 0.9f && freeTime > 0.55f &&
-                ball.location.z < 280 && local.x > -70 && local.x < 550 && MathF.Abs(local.y) < 160 &&
+            return car.IsGrounded && car.Up.z > 0.9f && freeTime > 0.55f && ball.location.z < 280 &&
+                local.x > -70 && local.x < 550 && MathF.Abs(local.y) < 160 &&
                 (ball.velocity - car.Velocity).Length() < 1000;
         }
-
         public void Run(RUBot bot)
         {
             Car car = bot.Me;
@@ -35,19 +33,9 @@ namespace Bot
             float pressure = bot is Stardust stardust ? stardust.Situation.OpponentEta : 6;
             if (carried && Game.Time - stableSince > 0.25f && pressure < 0.75f && local.x > 10 &&
                 car.Velocity.Dot(car.Forward) > 500 && car.Forward.Dot(lane) > 0.9f)
-            {
-                bot.Action = new ControlledFlick(car, lane);
-                return;
-            }
-            // Keep the projected ball above the hood, not at a fixed world-space point.
-            Vec3 projected = Ball.Location + Ball.Velocity * 0.10f;
-            Vec3 hoodError = car.Local(projected - car.Location - lane * 38);
-            float lateral = System.Math.Clamp(hoodError.y * 4.5f + relativeVelocity.y * 0.7f, -650, 650);
-            Vec3 heading = lane * 350 + car.Right * lateral;
-            float speed = System.Math.Clamp(Ball.Velocity.Dot(car.Forward) + hoodError.x * 3.8f, -350, 1550);
-            speed *= 1 - 0.35f * MathF.Min(1, MathF.Abs(local.y) / 160);
-            ControlMath.Ground(car, bot.Controller, heading, speed);
-            // No handbrake or boost pulses under the ball: preserve possession rather than booming it.
+            { bot.Action = new ControlledFlick(car, lane); return; }
+            // The same pure control law is exercised by the deterministic regression suite.
+            bot.Controller = PossessionControl.GroundCarry(car, Ball.MainBall, lane);
         }
     }
 
@@ -58,7 +46,6 @@ namespace Bot
         public bool Finished { get; private set; }
         public bool Interruptible => drive?.Interruptible ?? true;
         public float ClaimTime { get; private set; }
-
         public static BallSlice FindCatch(Car car)
         {
             if (!car.IsGrounded || Ball.Prediction.Slices == null) return null;
@@ -75,7 +62,6 @@ namespace Bot
             }
             return null;
         }
-
         public void Run(RUBot bot)
         {
             if (Game.Time - started > 1.8f || !bot.Me.IsGrounded || GroundDribble.CanStart(bot.Me, Ball.MainBall, 1))
@@ -150,13 +136,14 @@ namespace Bot
                 (car.Boost <= 0 && delta.Length() > 200)) { Finished = true; return; }
             if (bot is Stardust stardust && stardust.Options.FlipResets &&
                 stardust.Situation.OpponentEta > 1.2f && FlipReset.CanStart(car, Ball.MainBall, bot.Jump))
-            { bot.Action = new FlipReset(); return; }
-            Ball prediction = Ball.Prediction.TrySample(Game.Time + 0.12f, out Ball sample) ? sample : Ball.MainBall.Predict(0.12f);
+            { bot.Action = new FlipReset(bot.Jump); return; }
+            const float horizon = 0.12f;
+            Ball prediction = Ball.Prediction.TrySample(Game.Time + horizon, out Ball sample) ? sample : Ball.MainBall.Predict(horizon);
             Vec3 lane = ControlMath.FlatUnit(bot.TheirGoal.Location - prediction.location, car.Forward);
             Vec3 contactNormal = ControlMath.Unit(lane * 0.48f + Vec3.Up * 0.88f, Vec3.Up);
             Vec3 target = prediction.location - contactNormal * (Ball.Radius + 40);
             Vec3 targetVelocity = prediction.velocity + lane * 80 + Vec3.Up * 80;
-            Vec3 acceleration = ControlMath.FlightAcceleration(car.Location, car.Velocity, target, targetVelocity, Game.Gravity);
+            Vec3 acceleration = PossessionControl.FlightAtHorizon(car, target, targetVelocity, horizon);
             Vec3 nose = ControlMath.Unit(acceleration, car.Forward);
             ControlMath.Aim(car, bot.Controller, nose, Vec3.Up);
             float closing = (car.Velocity - Ball.Velocity).Dot(ControlMath.Unit(delta, Vec3.Up));
@@ -167,7 +154,7 @@ namespace Bot
         }
     }
 
-    /// <summary>Experimental, evidence-gated reset acquisition. Enable with STARDUST_FLIP_RESETS=1.</summary>
+    /// <summary>Experimental, evidence-gated acquisition. Enable with STARDUST_FLIP_RESETS=1.</summary>
     public sealed class FlipReset : IPossessionAction
     {
         private readonly ResetEvidence evidence = new();
@@ -177,6 +164,11 @@ namespace Bot
         public bool Finished { get; private set; }
         public bool Interruptible => !float.IsFinite(firedAt);
         public float ClaimTime => Game.Time + 0.25f;
+        public FlipReset(JumpState initialState)
+        {
+            // Capture spent state at selection, even if contact happens before the next control tick.
+            evidence.Observe(initialState, false, false, 0, Game.Time);
+        }
         public static bool CanStart(Car car, Ball ball, JumpState jump)
         {
             Vec3 delta = ball.location - car.Location;
@@ -220,9 +212,10 @@ namespace Bot
                 return;
             }
             if (Game.Time - started > 1.35f) { Finished = true; return; }
-            Ball prediction = Ball.MainBall.Predict(0.08f);
+            const float horizon = 0.08f;
+            Ball prediction = Ball.MainBall.Predict(horizon);
             Vec3 target = prediction.location - Vec3.Up * (Ball.Radius + 18) - lane * 20;
-            Vec3 acceleration = ControlMath.FlightAcceleration(car.Location, car.Velocity, target, prediction.velocity, Game.Gravity);
+            Vec3 acceleration = PossessionControl.FlightAtHorizon(car, target, prediction.velocity, horizon);
             if (delta.Length() > 220)
             {
                 Vec3 nose = ControlMath.Unit(acceleration, car.Forward);
@@ -231,7 +224,7 @@ namespace Bot
             }
             else
             {
-                // Coast into wheel contact. A boost pulse here tends to knock the ball away.
+                // Coast into wheel contact rather than boosting the ball away.
                 ControlMath.Aim(car, bot.Controller, lane, -Vec3.Up);
             }
         }
