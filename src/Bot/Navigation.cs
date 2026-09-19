@@ -16,7 +16,6 @@ namespace Bot
             float limitX = MathF.Min(3600, Field.CornerIntersection - 350 - MathF.Abs(y));
             return new Vec3(System.Math.Clamp(target.x, -limitX, limitX), y, 17);
         }
-
         public static Vec3 Waypoint(Vec3 car, Vec3 target, bool urgent = false)
         {
             Vec3 destination = FieldTarget(target, urgent);
@@ -25,19 +24,15 @@ namespace Bot
             // Get through the aperture BEFORE traversing sideways. Do not cut through a post.
             if (depth > 5100 && MathF.Abs(car.x) < Goal.Width / 2)
             {
-                if (MathF.Abs(car.x) > 600)
-                    return new Vec3(MathF.Sign(car.x) * 480, car.y, 17);
+                if (MathF.Abs(car.x) > 600) return new Vec3(MathF.Sign(car.x) * 480, car.y, 17);
                 return new Vec3(System.Math.Clamp(destination.x, -480, 480), side * 4600, 17);
             }
             // A car outside the aperture must come forward before moving across the goal mouth.
-            if (depth > 4700 && MathF.Abs(car.x) >= 650)
-                return new Vec3(car.x, side * 4400, 17);
+            if (depth > 4700 && MathF.Abs(car.x) >= 650) return new Vec3(car.x, side * 4400, 17);
             return destination;
         }
-
         public static float ArrivalSpeed(float distance, float maximum) =>
             MathF.Min(MathF.Max(0, maximum), MathF.Sqrt(2 * 2300 * MathF.Max(0, distance - 85)));
-
         public static ControllerStateT Control(Car car, Vec3 waypoint, float maximum, bool stop,
             bool urgent, float reserve = 25)
         {
@@ -49,7 +44,7 @@ namespace Bot
             float steeringAngle = reverse ? MathF.Atan2(-local.y, -local.x) : angle;
             float desired = MathF.Min(maximum, 2300 / (1 + 1.8f * MathF.Abs(steeringAngle)));
             if (stop) desired = MathF.Min(desired, ArrivalSpeed(distance, maximum));
-            if (distance < 90) desired = 0;
+            if (stop && distance < 90) desired = 0;
             if (reverse) desired = -MathF.Min(desired, 900);
             float speed = car.Velocity.Dot(car.Forward);
             var controls = new ControllerStateT
@@ -64,7 +59,6 @@ namespace Bot
                 float.IsFinite(car.Boost) && car.Boost > (urgent ? 0 : reserve);
             return controls;
         }
-
         public static bool CollisionCourse(Car me, Car other)
         {
             Vec3 delta = (other.Location - me.Location).Flatten();
@@ -75,7 +69,6 @@ namespace Bot
             return time > 0 && (delta + velocity * time).Length() < 220;
         }
     }
-
     /// <summary>Persistent arrival-aware navigation, without travel dodges or goal-area drifting.</summary>
     public sealed class Navigate : IAction
     {
@@ -105,7 +98,7 @@ namespace Bot
                 foreach (Car other in bot.LivingTeammates)
                     if (car.Index > other.Index && Navigation.CollisionCourse(car, other)) speed = MathF.Min(speed, 500);
             bot.Controller = Navigation.Control(car, waypoint, speed, StopAtTarget, Urgent);
-            if (car.Location.FlatDist(waypoint) < 100 && car.Velocity.FlatLen() < 120)
+            if (StopAtTarget && car.Location.FlatDist(waypoint) < 100 && car.Velocity.FlatLen() < 120)
             {
                 Vec3 local = car.Local(Ball.Location - car.Location);
                 bot.Controller.Steer = ControlRuntime.Axis(2 * MathF.Atan2(local.y, local.x));

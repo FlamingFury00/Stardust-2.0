@@ -1,10 +1,12 @@
 # Stardust: A Rocket League Bot
 
-## Stardust 3.0 candidate on v5
+## Stardust 3.0 robustness follow-up
 
-This feature branch adds threat-first planning, persistent possession mechanics, ground catches/carries/flicks, velocity-matched aerial carries, experimental flip-reset attempts, and automated control regressions. It is an evaluation candidate, **not a benchmark-verified professional-level release**. Reset attempts are opt-in; no trained neural policy is included.
+This branch addresses the reported shot-accuracy regressions, crowded defensive positioning, aerial height overshoot, low boost, slow threat response, and goal-post collisions. It includes regression reproductions of the old failures, role-separated defense, braking-aware navigation, corrected steering/geometry, and revised aerial boost control.
 
-See **[the Stardust 3.0 implementation, research, feature switches, and evaluation guide](docs/STARDUST_3.md)** for build/test commands, limitations, and the proposed learned-skills roadmap. The original bot registration identity is retained.
+See **[the robustness changes, evidence, reset diagnostics, and test guide](docs/ROBUSTNESS.md)**. The code builds and is checked with deterministic and analytic scenarios; those checks are not a live win-rate or mechanics-success benchmark. Flip resets remain experimental and require `STARDUST_FLIP_RESETS=1` in the actual bot process environment. `STARDUST_TRACE=1` reports whether they are enabled and logs selection/attempt outcomes.
+
+The earlier **[Stardust 3.0 implementation, research, and evaluation guide](docs/STARDUST_3.md)** describes the original candidate and longer-term learned-skills roadmap. The robustness guide supersedes its strategy/controller descriptions where changed. No trained neural policy is included, and the original bot registration identity is retained.
 
 ## Project background
 
