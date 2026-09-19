@@ -86,6 +86,9 @@ namespace RedUtils
 		/// <summary>Initializes the boost pads with data from the FieldInfo struct, provided by our bot</summary>
 		public static void Initialize(FieldInfoT fieldInfo)
 		{
+            // Field is static; every agent initializing the same arena must replace,
+            // not append, its pad table. Otherwise duplicate entries retain stale state.
+            Boosts.Clear();
             for (int i = 0; i < fieldInfo.BoostPads.Count; i++)
             {
                 if (fieldInfo.BoostPads[i] != null)
@@ -196,7 +199,7 @@ namespace RedUtils
 			float groundLandingTime = Utils.Quadratic(Game.Gravity.z / 2, car.Velocity.z, car.Location.z - 15)[1];
 			// How much time before the car lands on the ceiling. -1 if the car isn't going to land on the ceiling
 			float ceilingLandingTime = Utils.Quadratic(Game.Gravity.z / 2, car.Velocity.z, car.Location.z + 15 - Height)[1];
-			// Gets the landing surface and time, for either the ground or ceiling (depending on which we land on first)
+			// Gets the landing surface and time, for either the ground or the ceiling (depending on which we land on first)
 			Surface landingSurface = ceilingLandingTime < 0 ? Surfaces["Ground"] : Surfaces["Ceiling"];
 			float landingTime = ceilingLandingTime < 0 ? groundLandingTime : ceilingLandingTime;
 			// The location where the car will land, on either the ground or the ceiling

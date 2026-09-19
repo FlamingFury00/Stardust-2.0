@@ -66,29 +66,53 @@ namespace Bot
         }
     }
 
+    /// <summary>Use the original Drive for travel; brake locally for parking and goal geometry.</summary>
     public sealed class Positioning : IAction
     {
         public Vec3 Target;
         public bool Urgent, Stop = true;
+        // Kept for local parking control. A reserve must not cap full-field travel speed.
         public float Reserve = 25;
-        private Drive wallDrive;
+        private Drive travelDrive;
         public bool Finished => false;
-        public bool Interruptible => true;
+        public bool Interruptible => travelDrive?.Interruptible ?? true;
         public Positioning(Vec3 target, bool urgent = false) { Target = target; Urgent = urgent; }
         public void Run(RUBot bot)
         {
-            if (!bot.Me.IsGrounded) { bot.Action = new Recover(); return; }
-            if (bot.Me.Up.z < 0.75f)
+            Car car = bot.Me;
+            // A speed flip necessarily leaves the ground. Complete the SAME subaction;
+            // replacing it with Recover here cancels the mechanic halfway through.
+            if (travelDrive?.Action != null && !travelDrive.Action.Finished)
             {
-                wallDrive ??= new Drive(bot.Me, Navigation.FieldTarget(Target), 1100, false, false);
-                wallDrive.Target = Navigation.FieldTarget(Target);
-                wallDrive.Run(bot);
-                bot.Controller.Boost = false;
-                bot.Controller.Handbrake = false;
+                travelDrive.Run(bot);
                 return;
             }
-            wallDrive = null;
-            bot.Controller = Navigation.Controls(bot.Me, Target, Ball.Location, bot.Team, Urgent, Reserve, Stop);
+            if (!car.IsGrounded) { bot.Action = new Recover(); return; }
+            Vec3 destination = Navigation.FieldTarget(Target);
+            Vec3 waypoint = DrivingSafety.GoalWaypoint(car.Location, destination);
+            float distance = car.Location.FlatDist(waypoint);
+            float speed = car.Velocity.FlatLen();
+            float brakingZone = MathF.Max(450, speed * speed / (2 * 1800) + speed * 0.16f + 90);
+            bool localArrival = Stop && distance < brakingZone;
+            bool mouth = DrivingSafety.NearGoalMouth(car.Location);
+            bool staged = waypoint.FlatDist(destination) > 100;
+            if (car.Up.z > 0.75f && (localArrival || mouth || staged))
+            {
+                travelDrive = null;
+                bot.Controller = Navigation.Controls(car, destination, Ball.Location, bot.Team, Urgent, Reserve, Stop);
+                return;
+            }
+            if (travelDrive == null || travelDrive.Finished)
+                travelDrive = new Drive(car, waypoint, Car.MaxSpeed, allowDodges: true, wasteBoost: false);
+            travelDrive.Target = waypoint;
+            travelDrive.TargetSpeed = Car.MaxSpeed;
+            // The existing Drive checks speed, alignment, field boundaries and recovery
+            // time. Add only a LOCAL arrival/mouth margin, never a blanket role ban.
+            Vec3 landing = car.LocationAfterDodge();
+            travelDrive.AllowDodges = distance > MathF.Max(1900, (speed + 500) * 1.35f + 350) &&
+                !DrivingSafety.NearGoalMouth(landing) && !staged;
+            travelDrive.WasteBoost = Urgent;
+            travelDrive.Run(bot);
         }
     }
 }

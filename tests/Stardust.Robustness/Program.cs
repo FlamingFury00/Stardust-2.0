@@ -150,8 +150,8 @@ Test("defense: actual planner interrupts possession on next pressure frame", () 
     World(10.0084f,new Ball(new(0,-2350,100),new(0,-1200,0)),me,opponent);
     bot.Action=new GroundDribble(); bot.Run(); Check(bot.Action is not IPossessionAction); Check(bot.Decision.StartsWith("defend"));
 });
-Test("defense: last-back positioning never makes a speculative dodge", () => {
-    var me=CarAt(0,0,new(200,-3000,17),new(0,1400,0)); World(10,new Ball(new(0,-1000,100),Vec3.Zero),me);
+Test("defense: goal-mouth parking does not start travel flips or powerslides", () => {
+    var me=CarAt(0,0,new(200,-4300,17),new(0,-1400,0),yaw:-MathF.PI/2); World(10,new Ball(new(0,-1000,100),Vec3.Zero),me);
     var bot=Agent(0,0); new Positioning(new(500,-4400,17),true).Run(bot);
     Check(!bot.Controller.Jump && !bot.Controller.Handbrake);
 });
@@ -173,7 +173,7 @@ Test("shots: canonical ground and bounce fixtures still produce legal shots", ()
         var me=CarAt(0,0,new(0,-1300,17),new(0,1100,0),boost:70);
         World(10,new Ball(new(0,0,z),Vec3.Zero),me); var bot=Agent(0,0);
         var shot=ShootingPlanner.Select(bot,false,6,_=>false);
-        Check(shot!=null,$"no shot at z={z}"); Check(shot!.IsValid(me) && ShootingPlanner.HasSetupTime(shot,me,10));
+        Check(shot!=null,$"no shot at z={z}"); Check(shot!.IsValid(me) && shot.IsPredictionValid());
     }
 });
 Test("air: equal ballistic motion does not create artificial upward acceleration", () => {

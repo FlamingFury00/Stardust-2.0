@@ -61,76 +61,67 @@ namespace Bot
             return true;
         }
 
+        /// <summary>
+        /// Restore the original Target.Clamp and shot-family validity checks. Scan the
+        /// WHOLE horizon coarsely before refining the first success; do not spend the
+        /// construction budget exclusively on early, unreachable slices.
+        /// </summary>
         public static Shot Select(RUBot bot, bool emergency, float opponentEta, Func<float, bool> claimed)
         {
             BallSlice[] slices = Ball.Prediction.Slices;
             if (slices == null || slices.Length == 0) return null;
             Target target = new Target(emergency ? bot.OurGoal : bot.TheirGoal, emergency);
-            float deadline = emergency ? Tactics.GoalThreat(slices, bot.OurGoal.Location, Game.Time, 3) : 3;
-            deadline = float.IsFinite(deadline) ? MathF.Min(3, deadline) : 2;
-            float next = Game.Time + 0.05f, bestScore = float.NegativeInfinity;
-            int evaluated = 0, solved = 0;
+            float now = Game.Time;
+            float threat = emergency ? Tactics.GoalThreat(slices, bot.OurGoal.Location, now, 3) : float.PositiveInfinity;
+            float deadline = MathF.Min(3, threat);
+            if (deadline <= 0.025f) return null;
+            Shot At(BallSlice slice)
+            {
+                float t = slice.Time - now;
+                if (t <= 0.025f || t >= deadline || !ControlMath.Finite(slice.Location) ||
+                    !ControlMath.Finite(slice.Velocity) || MathF.Abs(slice.Location.y) > 5120 ||
+                    bot.Me.Location.Dist(slice.Location) > Car.MaxSpeed * t + 180 ||
+                    !target.Fits(slice.Location) || (!emergency && claimed != null && claimed(slice.Time))) return null;
+                // Opponent ETA to the CURRENT ball is not a proof that every future
+                // intercept is lost. In particular it must not disable all 1v1 challenges.
+                Vec3 approach = ((slice.Location - bot.Me.Location) / t).Cap(0, Car.MaxSpeed);
+                Ball after = slice.ToBall();
+                after.velocity = approach + slice.Velocity.Flatten(ControlMath.Unit(approach, bot.Me.Forward)) * 0.8f;
+                Vec3 destination = target.Clamp(after);
+                if (!ControlMath.Finite(destination)) return null;
+                // Original v5 family order and reachability contracts. The previously
+                // added setup estimate is not an exact impossibility test and is no longer a veto.
+                Shot candidate = new AerialShot(bot.Me, slice, destination);
+                if (candidate.IsValid(bot.Me)) return candidate;
+                candidate = new GroundShot(bot.Me, slice, destination);
+                if (candidate.IsValid(bot.Me)) return candidate;
+                candidate = new JumpShot(bot.Me, slice, destination);
+                if (candidate.IsValid(bot.Me)) return candidate;
+                candidate = new DoubleJumpShot(bot.Me, slice, destination);
+                return candidate.IsValid(bot.Me) ? candidate : null;
+            }
             Shot best = null;
-            var opponents = bot.LivingOpponents;
+            float next = now + 0.026f, previousTime = now + 0.025f;
+            int coarse = 0;
             foreach (BallSlice slice in slices)
             {
-                if (slice == null || slice.Time < next) continue;
-                float t = slice.Time - Game.Time;
-                if (t > deadline || evaluated >= 96 || solved >= 64 || MathF.Abs(slice.Location.y) > 5250) break;
-                if (best != null && t > best.Slice.Time - Game.Time + 0.18f) break;
-                if (bot.Me.Location.Dist(slice.Location) > Car.MaxSpeed * t + 180) continue;
-                next = slice.Time + (t < 0.8f ? 1f / 60 : 1f / 30);
-                evaluated++;
-                if (!target.Fits(slice.Location) || (!emergency && claimed != null && claimed(slice.Time))) continue;
-                if (!emergency && opponentEta < 1.5f && t > opponentEta + 0.25f) continue;
-                Vec3 destination;
-                if (emergency)
-                {
-                    Ball after = slice.ToBall();
-                    Vec3 approach = ((slice.Location - bot.Me.Location) / t).Cap(0, Car.MaxSpeed);
-                    after.velocity = approach + slice.Velocity.Flatten(ControlMath.Unit(approach, bot.Me.Forward)) * 0.8f;
-                    destination = target.Clamp(after);
-                }
-                else destination = ScoringPoint(bot.Me, slice, bot.TheirGoal, opponents, Game.Time);
-                if (!ControlMath.Finite(destination)) continue;
-                Shot candidate = null;
-                float cost = 0;
-                Surface surface = Field.NearestSurface(slice.Location);
-                float height = (slice.Location - surface.Limit(slice.Location)).Dot(surface.Normal);
-                for (int kind = 0; kind < 4 && solved < 64; kind++)
-                {
-                    if (kind == 0 && height > 160) continue;
-                    if (kind == 1 && height > 430) continue;
-                    if (kind == 2 && (slice.Location.z < 180 || slice.Location.z > 670)) continue;
-                    if (kind == 3)
-                    {
-                        bool canSpend = emergency || (bot.Me.Boost >= 25 &&
-                            (!(bot is Stardust st) || st.Situation.HasCover || bot.LivingTeammates.Count == 0));
-                        if (!canSpend || (bot.Me.IsGrounded && height < 300)) continue;
-                    }
-                    solved++;
-                    Shot trial = kind switch
-                    {
-                        0 => new GroundShot(bot.Me, slice, destination),
-                        1 => new JumpShot(bot.Me, slice, destination),
-                        2 => new DoubleJumpShot(bot.Me, slice, destination),
-                        _ => new AerialShot(bot.Me, slice, destination)
-                    };
-                    if (!trial.IsValid(bot.Me) || !HasSetupTime(trial, bot.Me, Game.Time)) continue;
-                    if (emergency)
-                    {
-                        if (trial is GroundShot ground) ground.ArriveAction.AllowFlipping = false;
-                        if (trial is JumpShot jump) jump.ArriveAction.AllowFlipping = false;
-                        if (trial is DoubleJumpShot doubleJump) doubleJump.ArriveAction.AllowFlipping = false;
-                    }
-                    candidate = trial;
-                    cost = kind switch { 0 => 0, 1 => 0.08f, 2 => 0.20f, _ => 0.4f };
-                    break;
-                }
-                if (candidate == null) continue;
-                float score = -1.5f * t - cost - MathF.Max(0, t - opponentEta) * (emergency ? 0 : 2);
-                if (score > bestScore) { best = candidate; bestScore = score; }
-                if (best != null && t > best.Slice.Time - Game.Time + 0.18f) break;
+                if (slice == null || !float.IsFinite(slice.Time) || slice.Time < next) continue;
+                if (slice.Time - now >= deadline || coarse++ >= (emergency ? 88 : 32)) break;
+                best = At(slice);
+                if (best != null) break;
+                previousTime = slice.Time;
+                float t = slice.Time - now;
+                next = slice.Time + (emergency && t < 0.35f ? 0.008f : emergency && t < 1 ? 0.025f : 0.095f);
+            }
+            if (best == null) return null;
+            // At most 12 more checks at native prediction resolution around that hit.
+            int fine = 0;
+            foreach (BallSlice slice in slices)
+            {
+                if (slice == null || slice.Time <= previousTime) continue;
+                if (slice.Time >= best.Slice.Time || fine++ >= 12) break;
+                Shot refined = At(slice);
+                if (refined != null) return refined;
             }
             return best;
         }
