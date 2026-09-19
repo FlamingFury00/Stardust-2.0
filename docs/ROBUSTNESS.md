@@ -1,3 +1,5 @@
+> **Superseded policy:** the movement caps, blanket last-back refill restriction and automatic possession defaults described below were rejected after playtesting. See [TEMPO_RECOVERY.md](TEMPO_RECOVERY.md) for the current correction. This report is retained as the record of PR #2, not as evidence of improved playing strength.
+
 # Robustness revision following in-game feedback
 
 Base: `v5` at `bc2e7b80231275faf34bc697ba09f00f47fb1d3d` (merged PR #1). This revision addresses reported shooting, spacing, aerial overshoot, reset visibility, boost, defensive reaction, and goal-return failures. It retains the existing RLBot/RedUtils stack. It does not add neural weights or claim professional-level play.

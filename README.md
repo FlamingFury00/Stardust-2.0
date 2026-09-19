@@ -1,10 +1,10 @@
 # Stardust: A Rocket League Bot
 
-## Stardust 3.0 candidate on v5
+## Pace and commitment recovery on v5
 
-This feature branch adds threat-first planning, persistent possession mechanics, ground catches/carries/flicks, velocity-matched aerial carries, experimental flip-reset attempts, and automated control regressions. It is an evaluation candidate, **not a benchmark-verified professional-level release**. The robustness revision adds role-separated positioning, setup-aware shots, minimum-burst aerial control and guarded automatic reset attempts (`STARDUST_FLIP_RESETS=0` disables them). No trained neural policy is included.
+The previous conservative 3.0 changes regressed live play. This correction restores the existing fast `Drive`/`GetBoost` paths, travel flips, original shot selection contracts and active challenges. Local goal-mouth braking remains. Experimental possession selectors are **off by default**; standard aerial shots and travel/shot dodges remain enabled.
 
-See **[the Stardust 3.0 implementation, research, feature switches, and evaluation guide](docs/STARDUST_3.md)** for build/test commands, limitations, and the proposed learned-skills roadmap. The original bot registration identity is retained.
+See **[the recovery notes and reproduction commands](docs/TEMPO_RECOVERY.md)**. The original registration identity is retained. There is no claim of improved match strength from synthetic tests alone; the earlier 3.0 reports are historical, not the current default behavior.
 
 ## Project background
 
