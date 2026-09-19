@@ -20,28 +20,39 @@ jobs:
         run: |
           chmod +x src/generate-flatbuffers.sh src/flatbuffers-schema/binaries/flatc
           dotnet build src/Bot/Bot.csproj -c Release
-      - name: Package public sources and offline compiler (no credentials)
+          git archive --format=tar HEAD | gzip > "$RUNNER_TEMP/sources.tgz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robustness-sources
+          path: ${{ runner.temp }}/sources.tgz
+          retention-days: 1
+          compression-level: 0
+      - name: Package compiler and used dependencies only
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/kit/repo" "$RUNNER_TEMP/kit/dotnet" "$RUNNER_TEMP/kit/nuget"
-          git archive HEAD | tar -x -C "$RUNNER_TEMP/kit/repo"
+          mkdir -p "$RUNNER_TEMP/kit/dotnet" "$RUNNER_TEMP/kit/nuget"
           export KIT="$RUNNER_TEMP/kit"
           python3 - <<'PY'
-          import os, pathlib, shutil
+          import os, json, pathlib, shutil
           root = pathlib.Path('/usr/share/dotnet')
           dest = pathlib.Path(os.environ['KIT']) / 'dotnet'
           shutil.copy2(root / 'dotnet', dest / 'dotnet')
           for family in ('host/fxr', 'sdk', 'shared/Microsoft.NETCore.App', 'shared/Microsoft.AspNetCore.App', 'packs/Microsoft.NETCore.App.Ref', 'packs/Microsoft.AspNetCore.App.Ref', 'packs/Microsoft.NETCore.App.Host.linux-x64'):
-              versions = sorted((root / family).glob('8.*'))
-              for version in versions:
+              versions = list((root / family).glob('8.*'))
+              if versions:
+                  version = max(versions, key=lambda p: tuple(map(int, p.name.split('.'))))
                   shutil.copytree(version, dest / family / version.name, dirs_exist_ok=True)
           packages = pathlib.Path.home() / '.nuget/packages'
-          if packages.exists(): shutil.copytree(packages, pathlib.Path(os.environ['KIT']) / 'nuget', dirs_exist_ok=True)
+          for assets in pathlib.Path('src').glob('*/obj/project.assets.json'):
+              for name, library in json.loads(assets.read_text())['libraries'].items():
+                  if library['type'] != 'package': continue
+                  relative = library.get('path', name.lower())
+                  shutil.copytree(packages / relative, pathlib.Path(os.environ['KIT']) / 'nuget' / relative, dirs_exist_ok=True)
           PY
-          tar -czf "$RUNNER_TEMP/robustness-kit.tgz" -C "$RUNNER_TEMP/kit" .
+          tar -czf "$RUNNER_TEMP/compiler.tgz" -C "$RUNNER_TEMP/kit" .
       - uses: actions/upload-artifact@v4
         with:
-          name: robustness-offline-kit
-          path: ${{ runner.temp }}/robustness-kit.tgz
+          name: robustness-compiler
+          path: ${{ runner.temp }}/compiler.tgz
           retention-days: 1
           compression-level: 0
