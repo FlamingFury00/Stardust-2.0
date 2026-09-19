@@ -1,7 +1,7 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics, fix/stardust-3-robustness]
+    branches: [feature/stardust-3-control-and-mechanics, fix/stardust-3-robustness, fix/restore-stardust-tempo]
   pull_request:
     branches: [v5]
 permissions:
@@ -35,3 +35,5 @@ jobs:
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
       - name: Run robustness action and rollout regressions
         run: dotnet run --project tests/Stardust.Robustness --configuration Release
+      - name: Run pace commitment and refill regressions
+        run: dotnet run --project tests/Stardust.Recovery --configuration Release
