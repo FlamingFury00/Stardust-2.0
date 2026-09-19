@@ -1,0 +1,30 @@
+name: Stardust control regression
+on:
+  push:
+    branches: [feature/stardust-3-control-and-mechanics]
+  pull_request:
+    branches: [v5]
+permissions:
+  contents: read
+concurrency:
+  group: stardust-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Make schema generator executable
+        run: chmod +x src/generate-flatbuffers.sh src/flatbuffers-schema/binaries/flatc
+      - name: Build bot
+        run: dotnet build src/Bot/Bot.csproj --configuration Release
+      - name: Run deterministic regressions
+        run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release
+      - name: Run analytic attitude and route checks
+        run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release

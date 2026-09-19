@@ -1,287 +1,153 @@
-﻿using RedUtils;
-using RedUtils.Math;
 using System;
-using System.Runtime.CompilerServices;
+using RedUtils;
+using RedUtils.Math;
 
 namespace Bot
 {
-    public class PossesionProperties
+    /// <summary>Independent feature switches support in-game ablation against the baseline.</summary>
+    public sealed class StardustOptions
     {
-        public bool HasPossesion { get; set; }
-        public BallSlice Intercept { get; set; }
-        public float FreeTime { get; set; }
-        public float Eta { get; set; }
-        public float Power { get; set; }
+        public bool GroundControl { get; init; } = Environment.GetEnvironmentVariable("STARDUST_GROUND_CONTROL") != "0";
+        public bool AerialCarry { get; init; } = Environment.GetEnvironmentVariable("STARDUST_AERIAL_CARRY") != "0";
+        public bool FlipResets { get; init; } = Environment.GetEnvironmentVariable("STARDUST_FLIP_RESETS") == "1";
+        public bool Trace { get; init; } = Environment.GetEnvironmentVariable("STARDUST_TRACE") == "1";
     }
 
+    /// <summary>Threat-first planning around persistent closed-loop mechanics; a 3.0 evaluation candidate.</summary>
     public class Stardust : RUBot
     {
+        public StardustOptions Options { get; } = new();
+        public TacticalFrame Situation { get; private set; } = new();
+        public string Decision { get; private set; } = "startup";
         public bool Shooting { get; set; }
-
+        private float nextPlan = float.NegativeInfinity;
+        private bool defending;
+        private Shot defensiveShot;
         public Stardust(string defaultAgentId = null) : base(defaultAgentId) { }
 
         public override void Run()
         {
-            if (Teammates.Count >= 1)
+            if (ClockReset) { nextPlan = float.NegativeInfinity; defending = false; defensiveShot = null; }
+            Shooting = Action is Shot;
+            if (IsKickoff)
             {
-                // Kickoff
-                if (IsKickoff && IsClosestKickoff(Me) && Action == null)
+                if (Action != null) return;
+                int rank = 0;
+                foreach (Car car in LivingTeammates)
+                    if (Tactics.KickoffBefore(car, Me, Ball.Location, Team)) rank++;
+                if (rank == 0) { Action = new Kickoff(); SetDecision("kickoff / taker"); }
+                else
                 {
-                    Action = new Kickoff();
+                    Vec3 target = rank == 1 ? new Vec3(0, Field.Side(Team) * 1200, 17) :
+                        new Vec3(-MathF.Sign(Me.Location.x) * 750, Field.Side(Team) * 3500, 17);
+                    DriveTo(target, rank == 1 ? 1300 : 1600, false);
+                    SetDecision(rank == 1 ? "kickoff / cheat" : "kickoff / cover");
                 }
-                else if (IsKickoff && IsSecondClosestKickoff() && Action == null)
-                {
-                    // Second man: cheat up to center then rotate to back boost to be ready
-                    Vec3 cheatPos = new Vec3(0, Field.Side(Team) * -500, 0);
-                    Action = new Drive(Me, cheatPos, 1500f, allowDodges: true, wasteBoost: false);
-                    return; // Keep it simple during kickoff frame
-                }
-
-                // Prioritize boost grabbing when low and safe before generic rotation
-                if (Me.Boost < 30 && !IsLastOneBack() && !ShouldDefend() && Action == null)
-                {
-                    Boost targetBoost = GetBestBoost();
-                    if (targetBoost != null)
-                    {
-                        Action = new GetBoost(Me, targetBoost.Index);
-                    }
-                }
-
-                // Rotation and positioning
-                if (ShouldRotate() && Action == null)
-                {
-                    Vec3 desiredZone = Zone5Positioning();
-                    Action = new Drive(Me, desiredZone);
-                }
-
-                // Attack
-                if (ShouldAttack() && Action == null)
-                {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    if (shot != null)
-                    {
-                        Action = shot;
-                    }
-                }
-
-                if (ShouldDefend() && Action == null)
-                {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal, true));
-                    if (shot != null)
-                    {
-                        Action = shot;
-                    }
-                }
-            }
-            else
-            {
-                // Kickoff
-                if (IsKickoff && Action == null)
-                {
-                    Action = new Kickoff();
-                }
-
-                // Rotation and positioning
-                if (ShouldRotate() && Action == null)
-                {
-                    Vec3 desiredZone = Zone5Positioning();
-                    Action = new Drive(Me, desiredZone);
-                }
-
-                // Boost grabbing (1v1): prioritize when not defending or last back
-                if (Me.Boost < 36 && IsClosest(Me) && !ShouldDefend() && !IsLastOneBack() && Action == null)
-                {
-                    Boost targetBoost = GetBestBoost();
-                    if (targetBoost != null)
-                    {
-                        Action = new GetBoost(Me, targetBoost.Index);
-                    }
-                }
-
-                // Attack
-                if (ShouldAttack() && Action == null)
-                {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    if (shot != null)
-                    {
-                        Action = shot;
-                    }
-                    else
-                    {
-                        // Safer fallback in 1v1: arrive to ball on shooting lane
-                        Vec3 dir = (TheirGoal.Location - Ball.Location).Flatten();
-                        Vec3 lane = Field.LimitToNearestSurface(Ball.Location - dir.Normalize() * 900);
-                        Action = new Arrive(Me, lane, dir);
-                    }
-                }
-
-                //Defend
-                if (ShouldDefend() && Action == null)
-                {
-                    Shot shot = FindShot(DefaultShotCheck, new Target(TheirGoal));
-                    if (shot != null)
-                    {
-                        Action = shot;
-                    }
-                    else
-                    {
-                        Action = new Shadow(Me);
-                    }
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private IAction GetOffensiveAction()
-        {
-            if (IsInFrontOfBall() && AreNoBotsBack())
-            {
-                Vec3 location3 = new(800 * -MathF.Sign(Ball.Location.x), 4900 * Field.Side(Team));
-                return new Drive(Me, location3, wasteBoost: true);
+                return;
             }
 
-            return GetClosestOpponent().Location.Dist(Ball.Location) > GetClosestTeammate().Location.Dist(Ball.Location)
-                ? new GetBoost(Me, interruptible: false)
-                : (IAction)null;
-        }
+            float threat = Tactics.GoalThreat(Ball.Prediction.Slices, OurGoal.Location, Game.Time);
+            bool emergency = float.IsFinite(threat);
+            bool risingThreat = emergency && !defending;
+            // Leave the rising-threat edge pending while a physically committed dodge finishes.
+            if (Action != null && !Action.Interruptible) return;
+            defending = emergency;
+            if (Action is Shot oldShot && !oldShot.IsPredictionValid()) Action = null;
+            if (risingThreat) { Action = null; nextPlan = float.NegativeInfinity; }
+            if (Action == null) nextPlan = MathF.Min(nextPlan, Game.Time);
+            if (Game.Time < nextPlan) return;
+            nextPlan = Game.Time + 0.12f;
+            Situation = Tactics.Evaluate(this);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private IAction GetSupportingAction()
-        {
-            if (AreNoBotsBack())
+            if (emergency)
             {
-                Vec3 location3 = new(800 * -MathF.Sign(Ball.Location.x), 4900 * Field.Side(Team));
-                return new Drive(Me, location3);
-            }
-
-            return null;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private IAction GetDefensiveAction()
-        {
-            return CanDefend(Me, OurGoal.Location) ? new Drive(Me, OurGoal.Location) : (IAction)null;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private IAction GetSupportingDefenseAction()
-        {
-            if (CanDefend(Me, OurGoal.Location))
-            {
-                return new Drive(Me, OurGoal.Location);
-            }
-
-            Car closestTeammate = GetClosestTeammate();
-            if (closestTeammate != null && CanDefend(closestTeammate, OurGoal.Location))
-            {
-                Vec3 supportPosition = CalculateSupportPosition(closestTeammate.Location, Ball.Location, OurGoal.Location);
-                return new Drive(Me, supportPosition);
-            }
-
-            return null;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static Vec3 CalculateSupportPosition(Vec3 teammateLocation, Vec3 ballLocation, Vec3 goalLocation)
-        {
-            Vec3 direction = goalLocation - teammateLocation;
-            Vec3 perpendicular = direction.Normalize().Cross(Vec3.Up);
-            Vec3 supportPosition = teammateLocation + (perpendicular * 1000);
-
-            if (supportPosition.Dist(ballLocation) < 500)
-            {
-                supportPosition = teammateLocation - (perpendicular * 1000);
-            }
-
-            return supportPosition;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool CanBlock(Car car, Vec3 location)
-        {
-            return car.Location.Direction(location).Dot(Ball.Location.Direction(car.Location)) > 0.699999988079071;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsBack()
-        {
-            return CanDefend(Me, OurGoal.Location) || MyBall(out _).HasPossesion;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private PossesionProperties MyBall(out PossesionProperties theirPossesion)
-        {
-            float minOpponentEta = 6f;
-            float opponentPower = 0.0f;
-            BallSlice opponentIntercept = null;
-            float minEta = 6f;
-
-            foreach (Car car in Cars.AllLivingCars)
-            {
-                BallSlice intercept = Ball.Prediction.Find(slice => Drive.GetEta(car, slice.Location) < slice.Time - Game.Time);
-                Vec3 interceptLocation = intercept != null ? intercept.Location : Ball.Location;
-                float eta = intercept != null ? intercept.Time - Game.Time : (car.Location.Dist(interceptLocation) < 500.0 ? 0.0f : car.Forward.Angle(car.Location.Direction(interceptLocation)));
-
-                if (eta < minEta)
+                // An attacking shot must not masquerade as an already planned defensive clear.
+                if (!(Action is Shot) || !ReferenceEquals(Action, defensiveShot))
                 {
-                    minEta = eta;
+                    defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
+                    Action = defensiveShot;
                 }
+                if (Action == null) DriveTo(Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true), 2300, false);
+                SetDecision("defend / predicted goal");
+                return;
+            }
 
-                if (eta < minOpponentEta && car.Team != Team && car.Location.Direction(TheirGoal.Location).Dot(interceptLocation.Direction(car.Location)) > 0.0)
+            if (Action is IPossessionAction) return;
+            if (Action is Shot shot && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time)) return;
+            if (!(Action is Drive)) Action = null;
+            bool owner = Situation.FirstMan == Index;
+            bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
+            if (!Me.IsGrounded)
+            {
+                if (owner && Options.AerialCarry && AerialCarry.CanStart(Me, Ball.MainBall, Situation.OpponentEta))
+                { Action = new AerialCarry(); SetDecision("mechanic / aerial carry"); return; }
+                Shot aerial = owner ? Tactics.SelectShot(this, false, Situation.OpponentEta, HasClaim) : null;
+                Action = aerial ?? (IAction)new Recover();
+                SetDecision(aerial == null ? "recover / landing surface" : "attack / airborne intercept");
+                return;
+            }
+
+            if (owner && goalSide)
+            {
+                if (Options.GroundControl && GroundDribble.CanStart(Me, Ball.MainBall, Situation.FreeTime))
+                { Action = new GroundDribble(); SetDecision("mechanic / ground carry"); return; }
+                if (Options.GroundControl && Situation.FreeTime > 0.7f && Ball.Location.z > 200 && GroundCatch.FindCatch(Me) != null)
+                { Action = new GroundCatch(); SetDecision("mechanic / cushion catch"); return; }
+                Shot attack = Tactics.SelectShot(this, false, Situation.OpponentEta, HasClaim);
+                if (attack != null) { Action = attack; SetDecision("attack / economical intercept"); return; }
+                if (Situation.FreeTime > 0.25f)
                 {
-                    minOpponentEta = eta;
-                    opponentIntercept = intercept;
-                    opponentPower = CalculatePower(car, intercept, eta);
+                    Vec3 lane = ControlMath.FlatUnit(TheirGoal.Location - Ball.Location, Me.Forward);
+                    DriveTo(Field.LimitToNearestSurface(Ball.Location - lane * 350), 1500, false);
+                    SetDecision("possess / approach behind ball");
+                    return;
                 }
             }
-
-            BallSlice myIntercept = Ball.Prediction.Find(slice => Drive.GetEta(Me, slice.Location) < slice.Time - Game.Time);
-            Vec3 myInterceptLocation = myIntercept != null ? myIntercept.Location : Ball.Location;
-            float myEta = myIntercept != null ? myIntercept.Time - Game.Time : 6f;
-            bool isFacingGoal = Me.Location.Direction(OurGoal.Location).Dot(myInterceptLocation.Direction(Me.Location)) > 0.0;
-
-            theirPossesion = new PossesionProperties
-            {
-                FreeTime = minEta - minOpponentEta,
-                HasPossesion = minEta > minOpponentEta - 0.2f,
-                Intercept = opponentIntercept,
-                Eta = minOpponentEta,
-                Power = opponentPower
-            };
-
-            return new PossesionProperties
-            {
-                FreeTime = minEta - myEta,
-                HasPossesion = minEta > myEta - 0.2f && isFacingGoal,
-                Intercept = myIntercept,
-                Eta = myEta,
-                Power = CalculatePower(Me, myIntercept, myEta)
-            };
+            Vec3 support = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, Situation.LastBack);
+            if (TryBoostDetour(support)) return;
+            DriveTo(support, Situation.LastBack ? 1800 : 2100, true);
+            SetDecision(owner ? "defend / shadow challenge" : "support / goal-side cover");
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static float CalculatePower(Car car, BallSlice intercept, float eta)
+        private bool HasClaim(float sliceTime) => HasTeammateEarlierShot(sliceTime);
+        private bool TryBoostDetour(Vec3 destination)
         {
-            Ball ball = intercept != null ? intercept.ToBall() : Ball.MainBall;
-            return MathF.Max((ball.velocity - ((ball.location - car.Location) / eta)).Length(), ((ball.location - car.Location) / eta).Length());
+            if (Ball.Location.y * Field.Side(Team) > 2500) return false;
+            Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team, Situation.OpponentEta);
+            if (pad == null) return false;
+            DriveTo(pad.Location, 1800, false);
+            SetDecision(pad.IsLarge ? "support / on-route large boost" : "support / small-pad route");
+            return true;
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void DriveTo(Vec3 destination, float speed, bool allowDodges)
+        {
+            if (!ControlMath.Finite(destination)) destination = OurGoal.Location;
+            if (Action is Drive drive)
+            {
+                drive.Target = destination;
+                drive.TargetSpeed = speed;
+                drive.AllowDodges = allowDodges;
+                drive.WasteBoost = false;
+            }
+            else Action = new Drive(Me, destination, speed, allowDodges, wasteBoost: false);
+        }
+        private void SetDecision(string decision)
+        {
+            if (Decision == decision) return;
+            Decision = decision;
+            if (Options.Trace) Console.WriteLine(FormattableString.Invariant(
+                $"stardust t={Game.Time:F3} car={Index} decision={Decision} eta={Situation.MyEta:F2} opponent={Situation.OpponentEta:F2}"));
+        }
+        // Retained for compatibility with the original Shadow action.
+        public bool IsBack() => CanDefend(Me, OurGoal.Location) || Situation.FirstMan == Index;
+        public static bool CanBlock(Car car, Vec3 location) =>
+            ControlMath.Unit(location - car.Location, Vec3.Up).Dot(ControlMath.Unit(car.Location - Ball.Location, Vec3.Up)) > 0.7f;
         public static bool CanDefend(Car car, Vec3 location)
         {
-            if (CanBlock(car, location))
-            {
-                return true;
-            }
-
-            double eta = Drive.GetEta(car, location);
-            Vec3 ballLocation = Ball.Location;
-            double distanceToLocation = ballLocation.Dist(location);
-            Vec3 ballVelocity = Ball.Velocity;
-            double maxBallSpeed = MathF.Max(ballVelocity.Dot(Ball.Location.Direction(location)), 1500f);
-            double timeToReachLocation = distanceToLocation / maxBallSpeed;
-
-            return eta < timeToReachLocation;
+            if (CanBlock(car, location)) return true;
+            float eta = Drive.GetEta(car, location);
+            float speed = MathF.Max(Ball.Velocity.Dot(ControlMath.Unit(location - Ball.Location, Vec3.Up)), 1500);
+            return float.IsFinite(eta) && eta < Ball.Location.Dist(location) / speed;
         }
     }
 }
