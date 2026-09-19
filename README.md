@@ -2,7 +2,7 @@
 
 ## Stardust 3.0 candidate on v5
 
-This feature branch adds threat-first planning, persistent possession mechanics, ground catches/carries/flicks, velocity-matched aerial carries, experimental flip-reset attempts, and automated control regressions. It is an evaluation candidate, **not a benchmark-verified professional-level release**. Reset attempts are opt-in; no trained neural policy is included.
+This feature branch adds threat-first planning, persistent possession mechanics, ground catches/carries/flicks, velocity-matched aerial carries, experimental flip-reset attempts, and automated control regressions. It is an evaluation candidate, **not a benchmark-verified professional-level release**. The robustness revision adds role-separated positioning, setup-aware shots, minimum-burst aerial control and guarded automatic reset attempts (`STARDUST_FLIP_RESETS=0` disables them). No trained neural policy is included.
 
 See **[the Stardust 3.0 implementation, research, feature switches, and evaluation guide](docs/STARDUST_3.md)** for build/test commands, limitations, and the proposed learned-skills roadmap. The original bot registration identity is retained.
 
@@ -16,4 +16,4 @@ Stardust is a Rocket League bot built on the [RLBot](http://www.rlbot.org/) fram
 
 The original Stardust 2.0 was optimized for 2v2 and 3v3 and was redeveloped for the RLBot Championship finals. The repository records a fourth-place finish in the **RLBot Championship 2023**; the original finals video is [here](https://www.youtube.com/watch?v=6A8_6RR4vR0&t=305s).
 
-The 3.0 candidate retains the existing shot solvers, kickoff routines, and drive subactions, while improving the control lifecycle and introducing possession controllers. The [evaluation guide](docs/STARDUST_3.md#promotion-criteria-run-these-in-rocket-league-before-a-release) separates software checks from the in-game evidence needed to establish playing strength.
+The 3.0 candidate retains the existing shot solvers, kickoff routines, and drive subactions, while improving the control lifecycle and introducing possession controllers. The [evaluation guide](docs/ROBUSTNESS.md#live-acceptance-checks-still-required) separates software checks from the in-game evidence needed to establish playing strength.

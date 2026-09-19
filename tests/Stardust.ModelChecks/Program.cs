@@ -65,8 +65,8 @@ var pads = new[] { smallPad };
 Vec3 ball = new(0, 1000, 100), destination = new(0, 0, 17);
 Check(ReferenceEquals(RoutePlanner.SelectBoost(me, pads, ball, destination, 0, 2, (_, _) => 0.5f), smallPad),
     "small on-route boost must be considered");
-Check(RoutePlanner.SelectBoost(me, pads, ball, destination, 0, 0.4f, (_, _) => 0.5f) == null,
-    "opponent pressure must reject the detour");
+Check(ReferenceEquals(RoutePlanner.SelectBoost(me, pads, ball, destination, 0, 0.4f, (_, _) => 0.5f, pressured: true), smallPad),
+    "zero-detour small pickup on the defensive route is allowed under pressure");
 Check(RoutePlanner.SelectBoost(me, pads, ball, destination, 0, 2, (_, _) => float.NaN) == null,
     "nonfinite travel time must be rejected");
 Check(RoutePlanner.SelectBoost(me, pads, new Vec3(0, -2000, 100), destination, 0, 2, (_, _) => 0.5f) == null,
