@@ -26,3 +26,5 @@ jobs:
         run: dotnet build src/Bot/Bot.csproj --configuration Release
       - name: Run deterministic regressions
         run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release
+      - name: Run analytic attitude and route checks
+        run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release

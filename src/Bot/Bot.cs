@@ -13,10 +13,7 @@ namespace Bot
         public bool Trace { get; init; } = Environment.GetEnvironmentVariable("STARDUST_TRACE") == "1";
     }
 
-    /// <summary>
-    /// Stardust 3.0 candidate: interruptible tactical planning around persistent, closed-loop mechanics.
-    /// Match strength and advanced contact mechanics still require in-game evaluation.
-    /// </summary>
+    /// <summary>Threat-first planning around persistent closed-loop mechanics; a 3.0 evaluation candidate.</summary>
     public class Stardust : RUBot
     {
         public StardustOptions Options { get; } = new();
@@ -25,12 +22,12 @@ namespace Bot
         public bool Shooting { get; set; }
         private float nextPlan = float.NegativeInfinity;
         private bool defending;
-
+        private Shot defensiveShot;
         public Stardust(string defaultAgentId = null) : base(defaultAgentId) { }
 
         public override void Run()
         {
-            if (ClockReset) { nextPlan = float.NegativeInfinity; defending = false; }
+            if (ClockReset) { nextPlan = float.NegativeInfinity; defending = false; defensiveShot = null; }
             Shooting = Action is Shot;
             if (IsKickoff)
             {
@@ -41,7 +38,6 @@ namespace Bot
                 if (rank == 0) { Action = new Kickoff(); SetDecision("kickoff / taker"); }
                 else
                 {
-                    // Stay on OUR side of the ball; never cheat across the centre line.
                     Vec3 target = rank == 1 ? new Vec3(0, Field.Side(Team) * 1200, 17) :
                         new Vec3(-MathF.Sign(Me.Location.x) * 750, Field.Side(Team) * 3500, 17);
                     DriveTo(target, rank == 1 ? 1300 : 1600, false);
@@ -53,21 +49,24 @@ namespace Bot
             float threat = Tactics.GoalThreat(Ball.Prediction.Slices, OurGoal.Location, Game.Time);
             bool emergency = float.IsFinite(threat);
             bool risingThreat = emergency && !defending;
-            defending = emergency;
-            // A dodge is a physical commitment, not a strategy that can be replaced halfway through.
+            // Leave the rising-threat edge pending while a physically committed dodge finishes.
             if (Action != null && !Action.Interruptible) return;
+            defending = emergency;
             if (Action is Shot oldShot && !oldShot.IsPredictionValid()) Action = null;
             if (risingThreat) { Action = null; nextPlan = float.NegativeInfinity; }
             if (Action == null) nextPlan = MathF.Min(nextPlan, Game.Time);
-
-            // Save supervision runs each frame; expensive interception/role search runs about 8 Hz.
             if (Game.Time < nextPlan) return;
             nextPlan = Game.Time + 0.12f;
             Situation = Tactics.Evaluate(this);
 
             if (emergency)
             {
-                if (!(Action is Shot)) Action = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
+                // An attacking shot must not masquerade as an already planned defensive clear.
+                if (!(Action is Shot) || !ReferenceEquals(Action, defensiveShot))
+                {
+                    defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
+                    Action = defensiveShot;
+                }
                 if (Action == null) DriveTo(Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true), 2300, false);
                 SetDecision("defend / predicted goal");
                 return;
@@ -75,11 +74,9 @@ namespace Bot
 
             if (Action is IPossessionAction) return;
             if (Action is Shot shot && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time)) return;
-            // Movement is updated rather than replaced each frame, retaining speed-flip subactions.
             if (!(Action is Drive)) Action = null;
             bool owner = Situation.FirstMan == Index;
             bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
-
             if (!Me.IsGrounded)
             {
                 if (owner && Options.AerialCarry && AerialCarry.CanStart(Me, Ball.MainBall, Situation.OpponentEta))
@@ -101,13 +98,11 @@ namespace Bot
                 if (Situation.FreeTime > 0.25f)
                 {
                     Vec3 lane = ControlMath.FlatUnit(TheirGoal.Location - Ball.Location, Me.Forward);
-                    Vec3 approach = Ball.Location - lane * 350;
-                    DriveTo(Field.LimitToNearestSurface(approach), 1500, false);
+                    DriveTo(Field.LimitToNearestSurface(Ball.Location - lane * 350), 1500, false);
                     SetDecision("possess / approach behind ball");
                     return;
                 }
             }
-
             Vec3 support = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, Situation.LastBack);
             if (TryBoostDetour(support)) return;
             DriveTo(support, Situation.LastBack ? 1800 : 2100, true);
@@ -115,22 +110,15 @@ namespace Bot
         }
 
         private bool HasClaim(float sliceTime) => HasTeammateEarlierShot(sliceTime);
-
         private bool TryBoostDetour(Vec3 destination)
         {
-            if (Me.Boost >= 35 || Situation.OpponentEta < 1 || Ball.Location.y * Field.Side(Team) > 2500) return false;
-            Boost pad = GetBestBoost();
-            if (pad == null || !pad.IsActive) return false;
-            // An affordable on-route pickup is permitted in 1v1; last-back is not a blanket ban.
-            float detour = Me.Location.FlatDist(pad.Location) + pad.Location.FlatDist(destination) - Me.Location.FlatDist(destination);
-            float eta = Drive.GetEta(Me, pad.Location);
-            bool goalSide = pad.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team);
-            if (!goalSide || detour > 400 || !float.IsFinite(eta) || eta + 0.5f > Situation.OpponentEta) return false;
+            if (Ball.Location.y * Field.Side(Team) > 2500) return false;
+            Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team, Situation.OpponentEta);
+            if (pad == null) return false;
             DriveTo(pad.Location, 1800, false);
-            SetDecision("support / on-route boost");
+            SetDecision(pad.IsLarge ? "support / on-route large boost" : "support / small-pad route");
             return true;
         }
-
         private void DriveTo(Vec3 destination, float speed, bool allowDodges)
         {
             if (!ControlMath.Finite(destination)) destination = OurGoal.Location;
@@ -143,7 +131,6 @@ namespace Bot
             }
             else Action = new Drive(Me, destination, speed, allowDodges, wasteBoost: false);
         }
-
         private void SetDecision(string decision)
         {
             if (Decision == decision) return;
@@ -151,8 +138,7 @@ namespace Bot
             if (Options.Trace) Console.WriteLine(FormattableString.Invariant(
                 $"stardust t={Game.Time:F3} car={Index} decision={Decision} eta={Situation.MyEta:F2} opponent={Situation.OpponentEta:F2}"));
         }
-
-        // Retained for compatibility with the existing Shadow action.
+        // Retained for compatibility with the original Shadow action.
         public bool IsBack() => CanDefend(Me, OurGoal.Location) || Situation.FirstMan == Index;
         public static bool CanBlock(Car car, Vec3 location) =>
             ControlMath.Unit(location - car.Location, Vec3.Up).Dot(ControlMath.Unit(car.Location - Ball.Location, Vec3.Up)) > 0.7f;
