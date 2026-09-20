@@ -261,11 +261,24 @@ namespace RedUtils
 			// The location where the car will land, on either the ground or the ceiling
 			Vec3 landingPos = PredictLocation(landingTime);
 
-			if (!Field.InField(landingPos, 150))
+			if (!float.IsFinite(landingTime) || landingTime < 0)
+				landingTime = 0;
+
+			if (landingTime > 0 && !Field.InField(landingPos, 150))
 			{
-				// If the landing position if outside of the field, we are going to be landing on a wall
+				// Only replace the ballistic floor/ceiling time when the car is actually
+				// moving toward the candidate wall. Parallel/away motion must not divide by
+				// zero or collapse the landing horizon to zero.
 				Surface landingSurface = Field.FindLandingSurface(this);
-				landingTime = MathF.Max((Location - landingSurface.Limit(Location)).Dot(landingSurface.Normal) / Velocity.Dot(-landingSurface.Normal), 0);
+				float distanceToSurface = MathF.Max(0,
+					(Location - landingSurface.Limit(Location)).Dot(landingSurface.Normal));
+				float approachSpeed = Velocity.Dot(-landingSurface.Normal);
+				if (approachSpeed > 0.001f)
+				{
+					float wallTime = distanceToSurface / approachSpeed;
+					if (float.IsFinite(wallTime) && wallTime >= 0 && wallTime < landingTime)
+						landingTime = wallTime;
+				}
 			}
 
 			return landingTime;

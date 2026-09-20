@@ -81,21 +81,16 @@ namespace Bot
         }
     }
 
-    /// <summary>Schmitt-trigger boost gating; misalignment always disables thrust immediately.</summary>
+    /// <summary>
+    /// Continuous acceleration demand translated into minimum-duration boost pulses.
+    /// The implementation lives in RedUtils so timed aerial shots and possession mechanics share one model.
+    /// </summary>
     public sealed class BoostGate
     {
-        private bool boosting;
-        private float lastSwitch = float.NegativeInfinity;
-        public bool Step(float now, float demand, float alignment, float fuel, bool gentleContact)
-        {
-            if (!float.IsFinite(now) || !float.IsFinite(demand) || !float.IsFinite(alignment) || fuel <= 0 ||
-                alignment < 0.88f || gentleContact)
-            { boosting = false; lastSwitch = now; return false; }
-            bool requested = demand > (boosting ? 120 : 240);
-            if (requested != boosting && now - lastSwitch >= 0.033f)
-            { boosting = requested; lastSwitch = now; }
-            return boosting;
-        }
+        private readonly ImpulseBoostGate gate = new();
+        public bool Step(float now, float demand, float alignment, float fuel, bool gentleContact) =>
+            gate.Step(now, demand, alignment, fuel, gentleContact);
+        public void Reset() => gate.Reset();
     }
 
     public readonly struct JumpCommand

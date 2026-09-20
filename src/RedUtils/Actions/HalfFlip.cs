@@ -18,8 +18,8 @@ namespace RedUtils
 		private bool _jumping = true;
 		/// <summary>When we started this action</summary>
 		private float _startTime = -1;
-		/// <summary>When we half-flip we have to let go of jump for a few frames. This counts those frames</summary>
-		private int _step = 0;
+		/// <summary>Whether a real controller tick with jump released has been emitted before the back-flip press.</summary>
+		private bool _releaseObserved = false;
 
 		/// <summary>Initializes a new half-flip action</summary>
 		public HalfFlip()
@@ -44,11 +44,12 @@ namespace RedUtils
 				// Jumps for .1 seconds
 				bot.Controller.Jump = true;
 			}
-			else if (_step < 3 && _jumping)
+			else if (!_releaseObserved && _jumping)
 			{
-				// Releases jump 3 frames, so we can dodge properly
+				// A single observed release is enough to create the next rising edge.
+				// Frame counting made the same half-flip slower at lower control rates.
 				bot.Controller.Jump = false;
-				_step++;
+				_releaseObserved = true;
 			}
 			else if (elapsed < (_jumping ? 0.1f : 0) + 0.2f)
 			{

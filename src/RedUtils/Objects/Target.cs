@@ -80,21 +80,43 @@ namespace RedUtils
 		public Vec3 Clamp(Ball ball)
 		{
 			Vec3 goalLine = (BottomRight - TopLeft).FlatNorm();
+			Vec3 planeNormal = goalLine.Cross(-Vec3.Up).Normalize();
 			GetCorrectedLimits(ball.location, out Vec3 correctedLeft, out Vec3 correctedRight, out Vec3 correctedTop, out Vec3 correctedBottom);
 
-			if (goalLine.Cross(-Vec3.Up).Dot(ball.location - (TopLeft + BottomRight) / 2) > 0)
+			if (planeNormal.Dot(ball.location - (TopLeft + BottomRight) / 2) > 0)
 			{
-				float time = MathF.Abs((ball.location - TopLeft).Dot(goalLine.Cross(-Vec3.Up)) / ball.velocity.Dot(goalLine.Cross(-Vec3.Up)));
-				Vec3 target = TargetSurface.Limit(ball.PredictLocation(time));
-				Vec3 directionClampedHorizontally = (target - ball.location).Normalize().Clamp((correctedLeft - ball.location).Normalize(), (correctedRight - ball.location).Normalize());
-				Vec3 directionClamped = directionClampedHorizontally.Clamp((correctedTop - ball.location).Normalize(), (correctedBottom - ball.location).Normalize(), goalLine);
+				float signedDistance = (ball.location - TopLeft).Dot(planeNormal);
+				float normalVelocity = ball.velocity.Dot(planeNormal);
+				float interceptTime = MathF.Abs(normalVelocity) > 0.001f ? -signedDistance / normalVelocity : float.NaN;
 
-				return TargetSurface.Limit(ball.location + directionClamped * MathF.Abs((ball.location - TopLeft).Dot(goalLine.Cross(-Vec3.Up)) / directionClamped.Dot(goalLine.Cross(-Vec3.Up))));
+				// Only extrapolate when the ball is genuinely moving toward the target plane.
+				// Otherwise use the orthogonal projection; backward-time extrapolation can drag
+				// a stationary/retreating ball to a post or poison the geometry with Infinity.
+				Vec3 target = float.IsFinite(interceptTime) && interceptTime > 0 && interceptTime <= 6
+					? TargetSurface.Limit(ball.PredictLocation(interceptTime))
+					: TargetSurface.Limit(ball.location - planeNormal * signedDistance);
+				if (!Finite(target)) target = TargetSurface.Location;
+
+				Vec3 directionClampedHorizontally = (target - ball.location).Normalize().Clamp(
+					(correctedLeft - ball.location).Normalize(), (correctedRight - ball.location).Normalize());
+				Vec3 directionClamped = directionClampedHorizontally.Clamp(
+					(correctedTop - ball.location).Normalize(), (correctedBottom - ball.location).Normalize(), goalLine);
+				float planeRate = directionClamped.Dot(planeNormal);
+				if (!float.IsFinite(planeRate) || MathF.Abs(planeRate) < 0.0001f) return target;
+
+				float travel = -signedDistance / planeRate;
+				if (!float.IsFinite(travel) || travel <= 0) return target;
+				Vec3 result = TargetSurface.Limit(ball.location + directionClamped * travel);
+				return Finite(result) ? result : target;
 			}
 			else
 			{
-				Vec3 directionClampedHorizontally = ball.velocity.Normalize().Clamp((correctedLeft - ball.location).Normalize(), (correctedRight - ball.location).Normalize());
-				Vec3 directionClamped = directionClampedHorizontally.Clamp((correctedTop - ball.location).Normalize(), (correctedBottom - ball.location).Normalize(), goalLine);
+				Vec3 seed = ball.velocity.Length() > 1 ? ball.velocity : ball.location - TargetSurface.Location;
+				if (seed.Length() < 0.001f) seed = planeNormal;
+				Vec3 directionClampedHorizontally = seed.Normalize().Clamp(
+					(correctedLeft - ball.location).Normalize(), (correctedRight - ball.location).Normalize());
+				Vec3 directionClamped = directionClampedHorizontally.Clamp(
+					(correctedTop - ball.location).Normalize(), (correctedBottom - ball.location).Normalize(), goalLine);
 
 				return ball.location + directionClamped.Normalize() * 1000;
 			}
@@ -105,17 +127,26 @@ namespace RedUtils
 		{
 			Vec3 goalLine = (BottomRight - TopLeft).FlatNorm();
 
-			Vec3 leftAdjusted = TopLeft + (TopLeft - ballLocation).Normalize().Rotate(-MathF.Asin(Ball.Radius / TopLeft.FlatDist(ballLocation))).Cross(-Vec3.Up).Normalize() * Ball.Radius;
-			Vec3 rightAdjusted = BottomRight + (BottomRight - ballLocation).Normalize().Rotate(MathF.Asin(Ball.Radius / BottomRight.FlatDist(ballLocation))).Cross(Vec3.Up).Normalize() * Ball.Radius;
+			Vec3 leftAdjusted = TopLeft + (TopLeft - ballLocation).Normalize().Rotate(-SafeAsinRatio(Ball.Radius, TopLeft.FlatDist(ballLocation))).Cross(-Vec3.Up).Normalize() * Ball.Radius;
+			Vec3 rightAdjusted = BottomRight + (BottomRight - ballLocation).Normalize().Rotate(SafeAsinRatio(Ball.Radius, BottomRight.FlatDist(ballLocation))).Cross(Vec3.Up).Normalize() * Ball.Radius;
 			Vec3 top = (TopLeft + BottomRight).Flatten() / 2 + Vec3.Up * TopLeft.z;
-			Vec3 topAdjusted = top + (TopLeft - ballLocation).Normalize().Rotate(-MathF.Asin(Ball.Radius / TopLeft.FlatDist(ballLocation, goalLine)), goalLine).Cross(-goalLine).Normalize() * Ball.Radius;
+			Vec3 topAdjusted = top + (TopLeft - ballLocation).Normalize().Rotate(-SafeAsinRatio(Ball.Radius, TopLeft.FlatDist(ballLocation, goalLine)), goalLine).Cross(-goalLine).Normalize() * Ball.Radius;
 			Vec3 bottom = (TopLeft + BottomRight).Flatten() / 2 + Vec3.Up * BottomRight.z;
-			Vec3 bottomAdjusted = bottom + (BottomRight - ballLocation).Normalize().Rotate(MathF.Asin(Ball.Radius / BottomRight.FlatDist(ballLocation, goalLine)), goalLine).Cross(goalLine).Normalize() * Ball.Radius;
+			Vec3 bottomAdjusted = bottom + (BottomRight - ballLocation).Normalize().Rotate(SafeAsinRatio(Ball.Radius, BottomRight.FlatDist(ballLocation, goalLine)), goalLine).Cross(goalLine).Normalize() * Ball.Radius;
 
 			correctedLeft = (TopLeft - ballLocation).Flatten().Dot((TopLeft - BottomRight).Flatten()) > 0f ? TopLeft : leftAdjusted;
 			correctedRight = (BottomRight - ballLocation).Flatten().Dot((BottomRight - TopLeft).Flatten()) > 0f ? BottomRight : rightAdjusted;
 			correctedTop = (TopLeft - ballLocation).Flatten(goalLine).Dot(Vec3.Up) > 0f ? top : topAdjusted;
 			correctedBottom = (BottomRight - ballLocation).Flatten(goalLine).Dot(-Vec3.Up) > 0f ? bottom : bottomAdjusted;
+		}
+
+		private static bool Finite(Vec3 value) =>
+			float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
+
+		private static float SafeAsinRatio(float numerator, float denominator)
+		{
+			if (!float.IsFinite(denominator) || denominator <= 0.0001f) return MathF.PI / 2;
+			return MathF.Asin(Utils.Cap(numerator / denominator, -1f, 1f));
 		}
 	}
 }

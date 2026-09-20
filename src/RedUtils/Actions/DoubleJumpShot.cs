@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Timers;
 using RedUtils.Math;
 
 namespace RedUtils
@@ -38,8 +37,10 @@ namespace RedUtils
 		private float _jumpElapsed = 0;
 		/// <summary>Keeps track of the last time the ball was touched</summary>
 		private float _latestTouchTime = -1;
-		/// <summary>When we double jump we have to let go of jump for a few frames and then hold jump for a few frames. This counts those frames</summary>
-		private int _step = 0;
+		/// <summary>Whether one controller output has released jump before the second press.</summary>
+		private bool _releaseObserved = false;
+		/// <summary>Whether the neutral second-jump rising edge has been emitted.</summary>
+		private bool _secondJumpPressed = false;
 
 		/// <summary>Initializes a new double jump action, with a specific ball slice and a shot target</summary>
 		public DoubleJumpShot(Car car, BallSlice slice, Vec3 shotTarget)
@@ -169,17 +170,17 @@ namespace RedUtils
 					// Holds the jump button for the first 0.2 seconds, giving us the maximum acceleration possible by that first jump
 					bot.Controller.Jump = true;
 				}
-				else if (_step < 3)
+				else if (!_releaseObserved)
 				{
-					// Lets go of jump for 3 frames, so we can double jump
+					// One observed false output is sufficient to create the next press edge.
 					bot.Controller.Jump = false;
-					_step++;
+					_releaseObserved = true;
 				}
-				else if (_step < 6)
+				else if (!_secondJumpPressed)
 				{
-					// Holds jump for 3 frames, giving us the double jump
+					// The neutral second jump is an impulse triggered by this rising edge.
 					bot.Controller.Jump = true;
-					_step++;
+					_secondJumpPressed = true;
 				}
 				else
 				{

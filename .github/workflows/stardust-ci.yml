@@ -1,7 +1,10 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics]
+    branches:
+      - feature/stardust-3-control-and-mechanics
+      - v5
+      - 'pro/**'
   pull_request:
     branches: [v5]
 permissions:
@@ -28,3 +31,13 @@ jobs:
         run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release
       - name: Run analytic attitude and route checks
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
+      - name: Run movement and recovery regressions
+        run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
+      - name: Run shooting and contact regressions
+        run: dotnet run --project tests/Stardust.Shooting/Stardust.Shooting.csproj --configuration Release
+      - name: Run aerial thrust regressions
+        run: dotnet run --project tests/Stardust.AerialControl/Stardust.AerialControl.csproj --configuration Release
+      - name: Run jump-edge regressions
+        run: dotnet run --project tests/Stardust.JumpEdges/Stardust.JumpEdges.csproj --configuration Release
+      - name: Run timed-shot jump-edge regressions
+        run: dotnet run --project tests/Stardust.ShotJumpEdges/Stardust.ShotJumpEdges.csproj --configuration Release
