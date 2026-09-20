@@ -56,7 +56,8 @@ namespace RedUtils
         /// <summary>Updates info about the game using data from the packet</summary>
         public static void Update(GamePacketT packet)
         {
-            Scores = new uint[2] { packet.Teams[0].Score, packet.Teams[1].Score };
+            Scores[0] = packet.Teams[0].Score;
+            Scores[1] = packet.Teams[1].Score;
 
             Time = packet.MatchInfo.SecondsElapsed;
             TimeRemaining = packet.MatchInfo.GameTimeRemaining;
