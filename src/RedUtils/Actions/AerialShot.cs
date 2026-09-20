@@ -31,7 +31,6 @@ namespace RedUtils
 		/// <summary>Whether or not we should jump immediatly or turn and then jump</summary>
 		private readonly bool _jumpImmediatly = false;
 		/// <summary>The amount of boost we have when starting this action</summary>
-		private readonly float _startBoostAmount = 0;
 		/// <summary>Whether or not the car is currently double jumping</summary>
 		private bool _currentlyDoubleJumping = false;
 		/// <summary>Whether or not the car is no longer turning to face the target</summary>
@@ -52,7 +51,6 @@ namespace RedUtils
 
 			Slice = slice;
 			ShotTarget = shotTarget;
-			_startBoostAmount = car.Boost;
 			// Airborne entries must not execute or predict a fresh ground launch or waste
 			// their first control tick on a ground-driving prelude.
 			_jumped = !car.IsGrounded;
@@ -285,9 +283,14 @@ namespace RedUtils
 			Vec3 finVel = car.IsGrounded ? (doubleJumping ? car.VelocityAfterDoubleJump(timeRemaining, 0) : car.VelocityAfterJump(timeRemaining, 0)) : car.PredictVelocity(timeRemaining);
 
 			Vec3 deltaX = TargetLocation - finPos;
-			Vec3 direction = deltaX.Normalize();
-			float angle = direction.Angle(car.Forward);
-			angle = Utils.Cap(angle, 0.0001f, angle);
+			float correction = deltaX.Length();
+			if (!float.IsFinite(correction) || !ControlFinite(finVel)) return -1;
+			// A zero correction is already on the required ballistic path. Treating the
+			// zero vector as a direction produces a fictitious 90-degree reorientation.
+			if (correction < 0.5f)
+				return finVel.Length() <= Car.MaxSpeed + 1 ? 0 : -1;
+			Vec3 direction = deltaX / correction;
+			float angle = MathF.Max(direction.Angle(car.Forward), 0.0001f);
 			float turnTime = 0.6f * (2 * MathF.Sqrt(angle / 9));
 
 			float tau1 = turnTime * Utils.Cap(1 - 0.4f / angle, 0, 1);
