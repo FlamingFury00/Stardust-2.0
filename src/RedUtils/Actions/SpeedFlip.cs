@@ -36,7 +36,7 @@ namespace RedUtils
 
                 if (bot.Me.Velocity.Angle(leftVec) < bot.Me.Velocity.Angle(rightVec))
                 {
-                    bot.AimAt(bot.Me.Location + leftVec);
+                    bot.AimAtNoAlloc(bot.Me.Location + leftVec);
                     if (bot.Me.Velocity.FlatAngle(leftVec) < 0.05f)
                     {
                         committed = true;
@@ -45,7 +45,7 @@ namespace RedUtils
                 }
                 else
                 {
-                    bot.AimAt(bot.Me.Location + rightVec);
+                    bot.AimAtNoAlloc(bot.Me.Location + rightVec);
                     if (bot.Me.Velocity.FlatAngle(rightVec) < 0.05f)
                     {
                         committed = true;
