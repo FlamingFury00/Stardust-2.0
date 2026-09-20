@@ -85,6 +85,49 @@ Test("landing: parallel motion near a wall keeps a finite ground landing time", 
     Check(float.IsFinite(time) && time > 0 && time < 2, $"parallel-wall landing time was {time}");
 });
 
+Test("speed flip: dropped frame cannot skip release or dodge", () =>
+{
+    var timeline = new SpeedFlipTimeline();
+    SpeedFlipFrame first = timeline.Step(0, 1);
+    SpeedFlipFrame late = timeline.Step(0.16f, 1);
+    SpeedFlipFrame dodge = timeline.Step(0.32f, 1);
+    Check(first.Jump && !first.Dodge, "first jump was not held");
+    Check(!late.Jump && !late.Dodge, "late packet must become the observed release frame");
+    Check(dodge.Jump && dodge.Dodge && dodge.Pitch < -0.9f, "dodge did not fire after the observed release");
+});
+Test("speed flip: duplicate release timestamp cannot manufacture a rising edge", () =>
+{
+    var timeline = new SpeedFlipTimeline();
+    timeline.Step(0, -1);
+    SpeedFlipFrame release = timeline.Step(0.11f, -1);
+    SpeedFlipFrame duplicate = timeline.Step(0.11f, -1);
+    SpeedFlipFrame dodge = timeline.Step(0.12f, -1);
+    Check(!release.Jump && !duplicate.Jump, "release was not preserved across duplicate time");
+    Check(dodge.Dodge && dodge.Jump && dodge.Roll < 0, "left-side dodge did not fire on the next advancing frame");
+});
+Test("speed flip: 120/60/30/15 Hz timelines all release before dodging and finish", () =>
+{
+    foreach (float dt in new[] { 1f / 120, 1f / 60, 1f / 30, 1f / 15 })
+    {
+        var timeline = new SpeedFlipTimeline();
+        bool sawFirstJump = false, sawRelease = false, sawDodge = false, finished = false;
+        for (float now = 0; now < 1.5f; now += dt)
+        {
+            SpeedFlipFrame frame = timeline.Step(now, 1);
+            if (frame.Jump && !frame.Dodge && !sawRelease) sawFirstJump = true;
+            if (sawFirstJump && !frame.Jump && !sawDodge) sawRelease = true;
+            if (frame.Dodge)
+            {
+                Check(sawRelease, $"dodge preceded release at dt={dt}");
+                sawDodge = true;
+            }
+            if (frame.Finished) { finished = true; break; }
+        }
+        Check(sawFirstJump && sawRelease && sawDodge && finished,
+            $"incomplete speed flip at dt={dt}: jump={sawFirstJump}, release={sawRelease}, dodge={sawDodge}, finished={finished}");
+    }
+});
+
 Console.WriteLine($"MOVEMENT RESULT: {passed} passed, {failed} failed.");
 Environment.ExitCode = failed == 0 ? 0 : 1;
 
