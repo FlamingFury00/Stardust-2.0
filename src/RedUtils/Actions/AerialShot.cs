@@ -180,7 +180,7 @@ namespace RedUtils
 				// The acceleration required to reach the target location in time
 				float requiredAccel = 2 * offset.Length() / MathF.Pow(timeRemaining, 2);
 
-				bot.AimAt(bot.Me.Location + offset, _jumped ? bot.Me.Location.Direction(Slice.Location) : Vec3.Up);
+				bot.AimAtNoAlloc(bot.Me.Location + offset, _jumped ? bot.Me.Location.Direction(Slice.Location) : Vec3.Up);
 
 				// Boosts and throttles when neccesary
 				bot.Controller.Boost = offset.Dot(bot.Me.Forward) / timeRemaining >= (Car.BoostAccel + Car.AirThrottleAccel) * MathF.Max(bot.DeltaTime, 13f / 120f) && offset.Angle(bot.Me.Forward) < 0.4f;
@@ -208,7 +208,7 @@ namespace RedUtils
 				else if (offset.Length() < 50 && !_currentlyDoubleJumping)
 				{
 					// When we are about to hit the ball, face in the shot direction
-					bot.AimAt(bot.Me.Location + ShotDirection, bot.Me.Location.Direction(Slice.Location));
+					bot.AimAtNoAlloc(bot.Me.Location + ShotDirection, bot.Me.Location.Direction(Slice.Location));
 				}
 			}
 		}
