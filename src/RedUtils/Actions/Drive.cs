@@ -124,7 +124,7 @@ namespace RedUtils
 				{
 					// Ground boost safety is a heading/yaw question. Pitch is near zero for
 					// almost every flat-ground target and must never gate forward boost.
-					AimAngles aimAngles = bot.AimAt(finalTarget, backwards: Backwards);
+					AimAngles aimAngles = bot.AimAtNoAlloc(finalTarget, backwards: Backwards);
 					angleToTarget = GroundHeadingError(aimAngles[0], aimAngles[1]);
 				}
 				else
@@ -132,7 +132,7 @@ namespace RedUtils
 					// Otherwise, aim so we have a smooth landing
 					Vec3 landingNormal = Field.FindLandingSurface(bot.Me).Normal;
 					Vec3 targetDirection = Utils.Lerp(Utils.Cap(landingTime * 1.5f - 0.6f, 0, 0.75f), bot.Me.Velocity.FlatNorm(landingNormal), -Vec3.Up);
-					bot.AimAt(bot.Me.Location + targetDirection, landingNormal);
+					bot.AimAtNoAlloc(bot.Me.Location + targetDirection, landingNormal);
 					angleToTarget = bot.Me.Forward.Angle(targetDirection);
 				}
 
