@@ -56,19 +56,20 @@ namespace Bot
             float pressureTime = Tactics.OpponentPressure(LivingOpponents, Ball.MainBall, OurGoal.Location);
             bool emergency = float.IsFinite(threat);
             bool underPressure = float.IsFinite(pressureTime);
-            bool risingThreat = emergency && !defending;
+            bool criticalDefense = emergency || Tactics.CriticalDefense(Ball.MainBall, OurGoal.Location, pressureTime);
+            bool risingThreat = criticalDefense && !defending;
             bool pressureEdge = underPressure != pressured;
             if (pressureEdge) nextPlan = float.NegativeInfinity;
 
             // Leave threat changes pending while a physically committed dodge/flip finishes.
             if (Action != null && !Action.Interruptible)
             {
-                defending = emergency;
+                defending = criticalDefense;
                 pressured = underPressure;
                 return;
             }
 
-            defending = emergency;
+            defending = criticalDefense;
             pressured = underPressure;
             if (Action is Shot oldShot && !oldShot.IsPredictionValid()) Action = null;
             if (risingThreat) { Action = null; nextPlan = float.NegativeInfinity; }
@@ -78,21 +79,38 @@ namespace Bot
             Situation.PressureTime = pressureTime;
             nextPlan = Game.Time + (underPressure ? 0.05f : 0.12f);
 
-            if (emergency)
+            if (criticalDefense)
             {
-                // An attacking shot must not masquerade as an already planned defensive clear.
-                if (!(Action is Shot) || !ReferenceEquals(Action, defensiveShot))
+                bool criticalOwner = Situation.TeamRank == 0;
+
+                // The elected challenger gets first access to a real away-from-goal clear.
+                // Everyone else occupies the actual saving corridor instead of a distant shadow orbit.
+                if (criticalOwner)
                 {
-                    defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
-                    Action = defensiveShot;
+                    if (!(Action is Shot) || !ReferenceEquals(Action, defensiveShot))
+                    {
+                        defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
+                        Action = defensiveShot;
+                    }
                 }
+                else
+                {
+                    defensiveShot = null;
+                    if (Action is Shot || Action is IPossessionAction || Action is GetBoost)
+                        Action = null;
+                }
+
                 if (Action == null)
                 {
-                    Vec3 rawGuard = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true);
+                    Vec3 rawGuard = Tactics.EmergencyGuardTarget(
+                        Ball.Location, OurGoal.Location, Situation.TeamRank, Situation.TeamCount);
                     Vec3 guard = Tactics.GoalReturnTarget(Me, rawGuard, OurGoal.Location);
                     DriveTo(guard, Tactics.GuardSpeed(Me, guard, 2300), false, allowHandbrake: false);
                 }
-                SetDecision("defend / predicted goal");
+
+                SetDecision(criticalOwner && Action is Shot
+                    ? "defend / critical clear"
+                    : "defend / critical goal-line guard");
                 return;
             }
 
@@ -127,8 +145,9 @@ namespace Bot
             bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
             if (!Me.IsGrounded)
             {
-                if (owner && Options.AerialCarry && AerialCarry.CanStart(Me, Ball.MainBall, Situation.OpponentEta))
-                { Action = new AerialCarry(); SetDecision("mechanic / aerial carry"); return; }
+                if (owner && Options.AerialCarry &&
+                    AerialCarry.SafeToStart(Me, Ball.MainBall, OurGoal.Location, TheirGoal.Location, Situation.OpponentEta))
+                { Action = new AerialCarry(); SetDecision("mechanic / controlled aerial carry"); return; }
                 Shot aerial = owner ? Tactics.SelectShot(this, false, Situation.OpponentEta, HasClaim) : null;
                 Action = aerial ?? (IAction)new Recover();
                 SetDecision(aerial == null ? "recover / landing surface" : "attack / airborne intercept");
@@ -145,9 +164,10 @@ namespace Bot
                 if (attack != null) { Action = attack; SetDecision("attack / economical intercept"); return; }
                 if (Situation.FreeTime > 0.25f)
                 {
-                    Vec3 lane = ControlMath.FlatUnit(TheirGoal.Location - Ball.Location, Me.Forward);
-                    DriveTo(Field.LimitToNearestSurface(Ball.Location - lane * 350), 1500, false);
-                    SetDecision("possess / approach behind ball");
+                    Vec3 setup = Tactics.SafeApproachTarget(
+                        Me, Ball.Location, OurGoal.Location, TheirGoal.Location);
+                    DriveTo(Field.LimitToNearestSurface(setup), 1500, false);
+                    SetDecision("possess / safe approach behind ball");
                     return;
                 }
             }
