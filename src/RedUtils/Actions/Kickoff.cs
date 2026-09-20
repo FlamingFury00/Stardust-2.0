@@ -51,13 +51,13 @@ namespace RedUtils
 				if (!_isDiagonal || _speedFlipped)
 				{
 					// Slow tur towards boost pad when on slightly offset center kickoff
-					bot.AimAt(Ball.Location - Ball.Location.Direction(bot.TheirGoal.Location) * (!_speedFlipped ? 2600 : 170));
+					bot.AimAtNoAlloc(Ball.Location - Ball.Location.Direction(bot.TheirGoal.Location) * (!_speedFlipped ? 2600 : 170));
 					bot.Controller.Steer *= (!_isDiagonal && !_speedFlipped ? 0.4f : 1);
 				}
 				else if (bot.Me.Velocity.Length() > 500)
 				{
 					// Turn towards the ball right before speedflipping on a diagonal kickoff
-					bot.AimAt(Ball.Location);
+					bot.AimAtNoAlloc(Ball.Location);
 				}
 
 				if (!bot.IsKickoff)
