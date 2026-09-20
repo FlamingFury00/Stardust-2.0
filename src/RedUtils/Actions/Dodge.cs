@@ -24,8 +24,8 @@ namespace RedUtils
 		private float _startTime = -1;
 		/// <summary>The inputs for the dodge direction</summary>
 		private Vec3 _input = Vec3.Zero;
-		/// <summary>When we dodge we have to let go of jump for a few frames. This counts those frames/summary>
-		private int _step = 0;
+		/// <summary>Whether a real controller tick with jump released has been emitted before the dodge press.</summary>
+		private bool _releaseObserved = false;
 
 		/// <summary>Initialize a new dodge action</summary>
 		/// <param name="jumpTime">How much time we spend jumping before dodging, if we start on the ground</param>
@@ -60,11 +60,12 @@ namespace RedUtils
 				// If we should still be jumping, jump
 				bot.Controller.Jump = true;
 			}
-			else if (_step < 3 && _jumping)
+			else if (!_releaseObserved && _jumping)
 			{
-				// Release jump for a few frames, after jumping
+				// Rocket League detects a dodge from a new jump press edge. One observed
+				// release output is sufficient; counting frames makes timing cadence-dependent.
 				bot.Controller.Jump = false;
-				_step++;
+				_releaseObserved = true;
 			}
 			else if (elapsed < (_jumping ? JumpTime : 0) + 0.6f)
 			{
