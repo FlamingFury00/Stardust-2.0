@@ -41,3 +41,5 @@ jobs:
         run: dotnet run --project tests/Stardust.JumpEdges/Stardust.JumpEdges.csproj --configuration Release
       - name: Run timed-shot jump-edge regressions
         run: dotnet run --project tests/Stardust.ShotJumpEdges/Stardust.ShotJumpEdges.csproj --configuration Release
+      - name: Run team shape and defense regressions
+        run: dotnet run --project tests/Stardust.TeamDefense/Stardust.TeamDefense.csproj --configuration Release
