@@ -35,3 +35,5 @@ jobs:
         run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
       - name: Run shooting and contact regressions
         run: dotnet run --project tests/Stardust.Shooting/Stardust.Shooting.csproj --configuration Release
+      - name: Run aerial thrust regressions
+        run: dotnet run --project tests/Stardust.AerialControl/Stardust.AerialControl.csproj --configuration Release
