@@ -46,7 +46,8 @@ namespace RedUtils
 				MathF.Atan2(localUp.y, localUp.z));
 		}
 
-		public AimAngles AimAt(Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
+		/// <summary>Allocation-free aiming path for bot internals.</summary>
+		public AimAngles AimAtNoAlloc(Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
 		{
 			AimAngles targetAngles = CalculateAimAngles(Me, targetLocation, up, backwards);
 			Controller.Steer = SteerPD(targetAngles.Yaw, -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
@@ -54,6 +55,15 @@ namespace RedUtils
 			Controller.Yaw = SteerPD(targetAngles.Yaw, -Me.LocalAngularVelocity[2] * 0.15f);
 			Controller.Roll = SteerPD(targetAngles.Roll, Me.LocalAngularVelocity[0] * 0.25f);
 			return targetAngles;
+		}
+
+		/// <summary>
+		/// Legacy source-compatible aiming API. Internal control code should use AimAtNoAlloc.
+		/// </summary>
+		public float[] AimAt(Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
+		{
+			AimAngles angles = AimAtNoAlloc(targetLocation, up, backwards);
+			return new[] { angles.Pitch, angles.Yaw, angles.Roll };
 		}
 
 		/// <summary>A Proportional-Derivative control loop used for the "AimAt" function</summary>
