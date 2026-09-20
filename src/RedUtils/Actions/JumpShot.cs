@@ -40,8 +40,8 @@ namespace RedUtils
 		private float _jumpElapsed = 0;
 		/// <summary>Keeps track of the last time the ball was touched</summary>
 		private float _latestTouchTime = -1;
-		/// <summary>When we dodge we have to let go of jump for a few frames. This counts those frames</summary>
-		private int _step = 0;
+		/// <summary>Whether at least one real controller output has released jump before the dodge handoff.</summary>
+		private bool _releaseObserved = false;
 
 		/// <summary>Initializes a new jump shot action, with a specific ball slice and a shot target</summary>
 		public JumpShot(Car car, BallSlice slice, Vec3 shotTarget)
@@ -193,11 +193,12 @@ namespace RedUtils
 					// Holds the jump button for as long as we need
 					bot.Controller.Jump = true;
 				}
-				else if (_step < 3 || timeRemaining > 0.05f)
+				else if (!_releaseObserved || timeRemaining > 0.05f)
 				{
-					// Releases the jump button for at least 3 frames, and then wait until the right time to dodge
+					// Keep jump released while waiting for the contact window, but require only one
+					// actual false output before handing off to the airborne dodge action.
 					bot.Controller.Jump = false;
-					_step++;
+					_releaseObserved = true;
 				}
 				else
 				{
