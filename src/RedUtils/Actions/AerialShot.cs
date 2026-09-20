@@ -53,8 +53,10 @@ namespace RedUtils
 			Slice = slice;
 			ShotTarget = shotTarget;
 			_startBoostAmount = car.Boost;
-			// Airborne entries must not execute or predict a fresh ground launch.
+			// Airborne entries must not execute or predict a fresh ground launch or waste
+			// their first control tick on a ground-driving prelude.
 			_jumped = !car.IsGrounded;
+			_aerialing = !car.IsGrounded;
 
 			// Sets the target location and shot direction such that we hit the ball towards our target
 			SetTargetLocation(car);
@@ -118,8 +120,9 @@ namespace RedUtils
 				DriveAction.TargetSpeed = Drive.GetDistance(bot.Me, DriveLocation) / timeRemaining;
 				DriveAction.Run(bot);
 
-				// If we don't have boost, or we pick up boost, OR the shot isn't valid, stop the shot
-				if (_startBoostAmount < bot.Me.Boost || bot.Me.Boost == 0 || !ShotValid())
+				// A boost pickup cannot make a shot less feasible, and a zero-boost coast/jump
+				// can still be valid. Feasibility below decides whether thrust is actually required.
+				if (!ShotValid())
 				{
 					Finished = true;
 				}
@@ -295,10 +298,13 @@ namespace RedUtils
 			float tau2 = timeRemaining - (timeRemaining - tau1) * MathF.Sqrt(1 - Utils.Cap(ratio, 0, 1));
 			Vec3 velocityEstimate = finVel + (Car.BoostAccel + Car.AirThrottleAccel) * (tau2 - tau1) * direction;
 			float boostEstimate = (tau2 - tau1) * Car.BoostConsumption;
-			bool enoughBoost = boostEstimate < car.Boost * 0.9f;
+			bool enoughBoost = boostEstimate <= MathF.Max(0, car.Boost * 0.9f);
 			bool enoughTime = MathF.Abs(ratio) < 0.9f;
 
-			return (velocityEstimate.Length() < Car.MaxSpeed * 0.9f && enoughBoost && enoughTime) ? boostEstimate : -1;
+			return (velocityEstimate.Length() <= Car.MaxSpeed + 1 && enoughBoost && enoughTime) ? boostEstimate : -1;
 		}
+
+		private static bool ControlFinite(Vec3 value) =>
+			float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
 	}
 }
