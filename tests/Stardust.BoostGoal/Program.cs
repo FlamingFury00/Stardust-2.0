@@ -57,7 +57,7 @@ Test("boost: pressure still rejects a full-pad excursion", () =>
 
 Test("goal return: drive exposes a handbrake safety switch", () =>
 {
-    FieldInfo? allow = typeof(Drive).GetField("AllowHandbrake", BindingFlags.Public | BindingFlags.Instance);
+    System.Reflection.FieldInfo? allow = typeof(Drive).GetField("AllowHandbrake", BindingFlags.Public | BindingFlags.Instance);
     Check(allow != null && allow.FieldType == typeof(bool),
         "generic Drive cannot disable powerslide while parking in the goal mouth");
 });
