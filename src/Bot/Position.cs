@@ -34,6 +34,6 @@ public class ParkAt : IAction
         if ((double)this.arriveAction.Target.Dist(bot.Me.Location) >= 400.0)
             return;
         double num = (double)bot.Throttle(0.0f);
-        bot.AimAt(bot.Me.Location + this.arriveAction.Direction);
+        bot.AimAtNoAlloc(bot.Me.Location + this.arriveAction.Direction);
     }
 }
