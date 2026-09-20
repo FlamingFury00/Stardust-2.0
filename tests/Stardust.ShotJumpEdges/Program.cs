@@ -69,7 +69,7 @@ float AerialSecondPress(float dt)
     return float.PositiveInfinity;
 }
 
-float DoubleJumpSecondPress(float dt)
+(float Time, int Releases) DoubleJumpSecondPress(float dt)
 {
     SetGameTime(0);
     Car car = GroundCar();
@@ -78,7 +78,8 @@ float DoubleJumpSecondPress(float dt)
     var shot = new DoubleJumpShot(car, slice, new Vec3(0, 5120, 300));
     FieldSet(typeof(DoubleJumpShot), "_jumped", shot, true);
 
-    bool sawFirst = false, sawRelease = false;
+    bool sawFirst = false;
+    int releases = 0;
     for (int i = 0; i < 30; i++)
     {
         SetGameTime(i * dt);
@@ -87,13 +88,13 @@ float DoubleJumpSecondPress(float dt)
         shot.Run(bot);
         if (bot.Controller.Jump)
         {
-            if (sawRelease) return i * dt;
+            if (releases > 0) return (i * dt, releases);
             sawFirst = true;
         }
-        else if (sawFirst) sawRelease = true;
+        else if (sawFirst) releases++;
         if (i == 0) car.IsGrounded = false;
     }
-    return float.PositiveInfinity;
+    return (float.PositiveInfinity, releases);
 }
 
 float JumpShotDodgeHandoff(float dt)
@@ -139,10 +140,12 @@ Test("double-jump shot: second jump uses one release edge at every cadence", () 
 {
     foreach (float dt in new[] { 1f / 120, 1f / 60, 1f / 30, 1f / 15 })
     {
-        float second = DoubleJumpSecondPress(dt);
+        var result = DoubleJumpSecondPress(dt);
         float max = Car.JumpMaxDuration + 2.1f * dt;
-        Check(float.IsFinite(second) && second <= max,
-            $"second jump at {1 / dt:F0} Hz was {second:F4}s; expected <= {max:F4}s");
+        Check(result.Releases == 1,
+            $"double-jump shot emitted {result.Releases} release outputs at {1 / dt:F0} Hz; expected exactly 1");
+        Check(float.IsFinite(result.Time) && result.Time <= max,
+            $"second jump at {1 / dt:F0} Hz was {result.Time:F4}s; expected <= {max:F4}s");
     }
 });
 
