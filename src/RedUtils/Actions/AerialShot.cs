@@ -53,6 +53,8 @@ namespace RedUtils
 			Slice = slice;
 			ShotTarget = shotTarget;
 			_startBoostAmount = car.Boost;
+			// Airborne entries must not execute or predict a fresh ground launch.
+			_jumped = !car.IsGrounded;
 
 			// Sets the target location and shot direction such that we hit the ball towards our target
 			SetTargetLocation(car);
@@ -62,14 +64,14 @@ namespace RedUtils
 
 			// Sets up the drive location and action
 			DriveLocation = Drive.GetEta(car, TargetLocation.Flatten(), false) <= Drive.GetEta(car, TargetLocation, false) ? TargetLocation.Flatten() : TargetLocation;
-			DriveAction = new Drive(car, DriveLocation, Drive.GetDistance(car, DriveLocation) / (Slice.Time - Game.Time));
+			DriveAction = new Drive(car, DriveLocation, Drive.GetDistance(car, DriveLocation) / MathF.Max(Slice.Time - Game.Time, 0.001f));
 		}
 
 		/// <summary>Sets the target location and the shot direction based on the velocity of the ball and other factors</summary>
 		private void SetTargetLocation(Car car)
 		{
 			// How much time until we should hit the ball
-			float timeRemaining = Slice.Time - Game.Time;
+			float timeRemaining = MathF.Max(Slice.Time - Game.Time, 0.001f);
 
 			// Predicts the ball's state after contact
 			Ball ballAfterHit = Slice.ToBall();
@@ -104,6 +106,11 @@ namespace RedUtils
 		{
 			// How much time until we should hit the ball
 			float timeRemaining = Slice.Time - Game.Time;
+			if (!float.IsFinite(timeRemaining) || timeRemaining <= 0)
+			{
+				Finished = true;
+				return;
+			}
 
 			if (!_aerialing)
 			{
@@ -193,7 +200,7 @@ namespace RedUtils
 				{
 					Finished = true;
 				}
-				else if (((!DoubleJumping && _elapsedTime < 1.45f) || (!bot.Me.HasJumped && _jumped)) && timeRemaining < 0.1f && offset.Length() < 100)
+				else if (_jumped && bot.Jump.CanDodge && timeRemaining < 0.1f && offset.Length() < 100)
 				{
 					// If it's possible to dodge before hitting the ball, why not do it?
 					bot.Action = new Dodge(ShotDirection.FlatNorm(), 0.1f);
@@ -204,6 +211,15 @@ namespace RedUtils
 					bot.AimAt(bot.Me.Location + ShotDirection, bot.Me.Location.Direction(Slice.Location));
 				}
 			}
+		}
+
+		/// <summary>
+		/// Circular displacement while turning on a surface. Both orthogonal components
+		/// are radius-scaled; omitting the radius from the forward term underestimates travel.
+		/// </summary>
+		public static Vec3 TurnDisplacement(Vec3 driveDirection, Vec3 turnSide, float radius, float angle)
+		{
+			return turnSide * radius * (1 - MathF.Cos(angle)) + driveDirection * radius * MathF.Sin(angle);
 		}
 
 		/// <summary>Returns whether this aerial is possible</summary>
@@ -222,7 +238,7 @@ namespace RedUtils
 				Vec3 turnSide = car.Right.FlatNorm(normal) * MathF.Sign(car.Right.Dot(DriveLocation - car.Location));
 
 				// Predicts the car's location, orientation, and velocity after turning
-				carAfterTurn.Location = car.Location + turnSide * radius * (1 - MathF.Cos(angle)) + driveDirection * MathF.Sin(angle);
+				carAfterTurn.Location = car.Location + TurnDisplacement(driveDirection, turnSide, radius, angle);
 				carAfterTurn.Forward = carAfterTurn.Location.FlatDirection(DriveLocation, normal);
 				carAfterTurn.Up = normal;
 				carAfterTurn.Velocity = carAfterTurn.Forward * Drive.SpeedAfterTurn(car.Velocity.Length(), angle, DriveAction.Backwards ? 0.8f : 1);
@@ -259,6 +275,8 @@ namespace RedUtils
 		private float GetBoostEstimate(Car car, bool doubleJumping)
 		{
 			float timeRemaining = Slice.Time - Game.Time;
+			if (!float.IsFinite(timeRemaining) || timeRemaining <= 0)
+				return -1;
 
 			Vec3 finPos = car.IsGrounded ? (doubleJumping ? car.LocationAfterDoubleJump(timeRemaining, 0) : car.LocationAfterJump(timeRemaining, 0)) : car.PredictLocation(timeRemaining);
 			Vec3 finVel = car.IsGrounded ? (doubleJumping ? car.VelocityAfterDoubleJump(timeRemaining, 0) : car.VelocityAfterJump(timeRemaining, 0)) : car.PredictVelocity(timeRemaining);
@@ -270,6 +288,8 @@ namespace RedUtils
 			float turnTime = 0.6f * (2 * MathF.Sqrt(angle / 9));
 
 			float tau1 = turnTime * Utils.Cap(1 - 0.4f / angle, 0, 1);
+			if (tau1 >= timeRemaining)
+				return -1;
 			float requiredAccel = 2 * deltaX.Length() / MathF.Pow(timeRemaining - tau1, 2);
 			float ratio = requiredAccel / (Car.BoostAccel + Car.AirThrottleAccel);
 			float tau2 = timeRemaining - (timeRemaining - tau1) * MathF.Sqrt(1 - Utils.Cap(ratio, 0, 1));

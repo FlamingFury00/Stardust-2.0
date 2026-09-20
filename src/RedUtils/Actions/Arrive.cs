@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using RedUtils.Math;
 
 namespace RedUtils
@@ -60,31 +60,6 @@ namespace RedUtils
 
 			// Predicts (roughly) the location of the car after dodging
 			Vec3 predictedLocation = bot.Me.LocationAfterDodge();
-			Vec3 shiftedTarget = ApproachTarget(bot.Me, targetSpeed);
-
-			// How much time we have left to flip
-			float timeLeft = bot.Me.Location.FlatDist(Target) / MathF.Max(carSpeed + 500, 1410);
-
-			// Only allow dodges if we are sure we won't land too far over, and that we have enough time to recover
-			Drive.AllowDodges = AllowFlipping && MathF.Sign(predictedLocation.FlatDirection(Target).Dot(Direction.Cross())) == MathF.Sign(bot.Me.Location.FlatDirection(Target).Dot(Direction.Cross())) && timeLeft > 1.35f + RecoveryTime;
-			Drive.Target = shiftedTarget;
-			Drive.TargetSpeed = targetSpeed;
-			Drive.Run(bot); // Drive towards the shifted target
-
-			// If the drive sub action isn't interruptible, then this action isn't interruptible either
-			Interruptible = Drive.Interruptible;
-
-			// If we have arrived, or we ran out of time, finish this action
-			if (Field.LimitToNearestSurface(bot.Me.Location).Dist(Field.LimitToNearestSurface(Target)) < 100 || (ArrivalTime < Game.Time && ArrivalTime > 0))
-			{
-				Finished = true;
-			}
-		}
-
-        /// <summary>The same setup waypoint used by Run, exposed to shot feasibility checks.</summary>
-        public Vec3 ApproachTarget(Car car, float targetSpeed)
-        {
-            float carSpeed = car.Velocity.Length();
 			// If we were given a direction, calculate a shifted version of our target so that we face the given direction
 			Vec3 shiftedTarget;
 			if (Direction.Length() > 0)
@@ -92,11 +67,11 @@ namespace RedUtils
 				// Gets the surface normal of the surface we should be on at arrival
 				Vec3 surfaceNormal = Field.NearestSurface(Target).Normal;
 				// Gets the direction to the target, flattened by the surface normal
-				Vec3 directionToTarget = car.Location.FlatDirection(Target, surfaceNormal);
+				Vec3 directionToTarget = bot.Me.Location.FlatDirection(Target, surfaceNormal);
 
 				// Calculates the amount we should shift the current target
 				float additionalShift = RecoveryTime * carSpeed;
-				float shift = MathF.Min(Field.DistanceBetweenPoints(Target, car.Location) * 0.6f, Utils.Cap(carSpeed, 1410, Car.MaxSpeed) * 1.5f);
+				float shift = MathF.Min(Field.DistanceBetweenPoints(Target, bot.Me.Location) * 0.6f, Utils.Cap(carSpeed, 1410, Car.MaxSpeed) * 1.5f);
 				float turnRadius = Drive.TurnRadius(Utils.Cap(carSpeed, 500, Car.MaxSpeed)) * 1.2f;
 
 				shift *= targetSpeed < 2200 || ArrivalTime < 0 ? Utils.Cap((shift - additionalShift) / turnRadius, 0f, 1f) : 0;
@@ -112,8 +87,24 @@ namespace RedUtils
 				shiftedTarget = Target;
 			}
 
-            return shiftedTarget;
-        }
+			// How much time we have left to flip
+			float timeLeft = bot.Me.Location.FlatDist(Target) / MathF.Max(carSpeed + 500, 1410);
+
+			// Only allow dodges if we are sure we won't land too far over, and that we have enough time to recover
+			Drive.AllowDodges = MathF.Sign(predictedLocation.FlatDirection(Target).Dot(Direction.Cross())) == MathF.Sign(bot.Me.Location.FlatDirection(Target).Dot(Direction.Cross())) && timeLeft > 1.35f + RecoveryTime;
+			Drive.Target = shiftedTarget;
+			Drive.TargetSpeed = targetSpeed;
+			Drive.Run(bot); // Drive towards the shifted target
+
+			// If the drive sub action isn't interruptible, then this action isn't interruptible either
+			Interruptible = Drive.Interruptible;
+
+			// If we have arrived, or we ran out of time, finish this action
+			if (Field.LimitToNearestSurface(bot.Me.Location).Dist(Field.LimitToNearestSurface(Target)) < 100 || (ArrivalTime < Game.Time && ArrivalTime > 0))
+			{
+				Finished = true;
+			}
+		}
 
 		/// <summary>Finds the distance left to drive</summary>
 		public float Distance(Car car)

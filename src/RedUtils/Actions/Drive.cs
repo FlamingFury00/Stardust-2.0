@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using RedUtils.Math;
 
@@ -96,8 +96,6 @@ namespace RedUtils
 					finalTarget = FindTargetAroundCorner(bot, finalTarget, nextSurface);
 				}
 
-				finalTarget = DrivingSafety.GoalWaypoint(bot.Me.Location, finalTarget);
-
 				float turnRadius = TurnRadius(MathF.Abs(forwardSpeed));
 				// Finds the point of rotation for our bot
 				Vec3 nearestTurnCenter = mySurface.Limit(bot.Me.Location) + bot.Me.Right.FlatNorm(mySurface.Normal) * MathF.Sign(bot.Me.Right.Dot(finalTarget - bot.Me.Location)) * turnRadius;
@@ -125,8 +123,7 @@ namespace RedUtils
 				if (bot.Me.IsGrounded || bot.Me.Velocity.FlatLen() < 500)
 				{
 					// Aim at the final target assuming we shoukdn't recover
-					bot.AimAt(finalTarget, backwards: Backwards);
-					angleToTarget = DrivingSafety.AimAngle(bot.Me, finalTarget, Backwards);
+					angleToTarget = bot.AimAt(finalTarget, backwards: Backwards)[0];
 				}
 				else
 				{
@@ -141,10 +138,10 @@ namespace RedUtils
 				bot.Controller.Boost = bot.Controller.Boost && (angleToTarget < 0.35f || (angleToTarget < 0.85f && !bot.Me.IsGrounded)) && !Backwards && (WasteBoost || (TargetSpeed > 1800 && forwardSpeed > 1200));
 				// Drift if the target is behind us, or when we need to turn really sharply
 				bot.Controller.Handbrake = (MathF.Abs(angleToTarget) > 2.2f || (Field.DistanceBetweenPoints(nearestTurnCenter, Target) < turnRadius - 40 && SpeedFromTurnRadius(TurnRadius(bot.Me, Target)) < 350))
-											&& !DrivingSafety.NearGoalMouth(bot.Me.Location) && mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
+											&& mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
 
 				// Draws a debug line to represent the final target
-				bot.Renderer?.Line3D(finalTarget, finalTarget + Field.NearestSurface(finalTarget).Normal * 200, Color.LimeGreen);
+				bot.Renderer.Line3D(finalTarget, finalTarget + Field.NearestSurface(finalTarget).Normal * 200, Color.LimeGreen);
 
 				// Estimates where we'll be after dodging
 				Vec3 predictedLocation = bot.Me.LocationAfterDodge();
@@ -219,7 +216,7 @@ namespace RedUtils
 			}
 
 			// Draws a debug line to represent the target
-			bot.Renderer?.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
+			bot.Renderer.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
 			
 			// Prevents this action from being interrupted during a dodge
 			Interruptible = Action == null || Action.Interruptible;
@@ -451,7 +448,7 @@ namespace RedUtils
 
 			// Gets the normal of the nearest surface to the car when it starts driving
 			Vec3 surfaceNormal = car.IsGrounded ? Field.NearestSurface(car.Location).Normal : Field.FindLandingSurface(car).Normal;
-			// Calculates the forward direction when it starts driving, and it's velocity in that direction
+			// Calculates the car's forward direction when it starts driving, and it's velocity in that direction
 			Vec3 carForward = car.IsGrounded ? car.Forward : (car.Velocity.FlatLen() > 500 ? car.Velocity.FlatNorm(surfaceNormal) : car.Location.FlatDirection(target, surfaceNormal));
 			float currentSpeed = carForward.Dot(car.Velocity);
 			float landingTime = car.PredictLandingTime();

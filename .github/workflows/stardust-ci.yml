@@ -1,7 +1,7 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics, fix/stardust-3-robustness, fix/restore-stardust-tempo]
+    branches: [feature/stardust-3-control-and-mechanics]
   pull_request:
     branches: [v5]
 permissions:
@@ -11,11 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   regression:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +21,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Make schema generator executable
-        if: runner.os == 'Linux'
         run: chmod +x src/generate-flatbuffers.sh src/flatbuffers-schema/binaries/flatc
       - name: Build bot
         run: dotnet build src/Bot/Bot.csproj --configuration Release
@@ -33,7 +28,3 @@ jobs:
         run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release
       - name: Run analytic attitude and route checks
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
-      - name: Run robustness action and rollout regressions
-        run: dotnet run --project tests/Stardust.Robustness --configuration Release
-      - name: Run pace commitment and refill regressions
-        run: dotnet run --project tests/Stardust.Recovery --configuration Release

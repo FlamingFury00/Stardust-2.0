@@ -265,17 +265,18 @@ namespace RedUtils.Math
 		/// <summary>Returns the angle between two vectors</summary>
 		public float Angle(Vec3 v)
 		{
-			return MathF.Acos(MathF.Round(this.Normalize().Dot(v.Normalize()), 4));
+			float dot = MathF.Round(this.Normalize().Dot(v.Normalize()), 4);
+			return MathF.Acos(System.Math.Clamp(dot, -1f, 1f));
 		}
 		/// <summary>Returns the 2D, flat angle between two vectors</summary>
 		public float FlatAngle(Vec3 v)
 		{
-			return MathF.Acos(MathF.Round(this.Normalize().Flatten().Dot(v.Normalize().Flatten()), 4));
+			return Flatten().Angle(v.Flatten());
 		}
 		/// <summary>Returns the 2D, flat angle between two vectors (flattened in the "up" direction)</summary>
 		public float FlatAngle(Vec3 v, Vec3 up)
 		{
-			return MathF.Acos(MathF.Round(this.Normalize().Flatten(up).Dot(v.Normalize().Flatten(up)), 4));
+			return Flatten(up).Angle(v.Flatten(up));
 		}
 		/// <summary>Returns this vector, with the same direction, just with a new length</summary>
 		public Vec3 Rescale(float n)
