@@ -10,6 +10,7 @@ namespace RedUtils
     public abstract partial class RUBot : Bot
     {
         private static readonly object WorldGate = new();
+        private static readonly SharedWorldFrameGate WorldFrames = new();
         private readonly TickClock clock = new();
         private readonly ShotClaimLedger claims = new();
         private bool ready, hasOutput, shotClaimActive;
@@ -40,24 +41,49 @@ namespace RedUtils
 
         private void Process(GamePacketT packet)
         {
+            // Renderer/action state belongs to this bot instance. Cars/Game/Field/Ball are
+            // process-wide static snapshots and are refreshed once per unique RLBot frame.
             if (!ready)
             {
                 Renderer = new ExtendedRenderer(base.Renderer);
-                Game.Initialize();
-                Field.Initialize(FieldInfo);
-                Cars.Initialize(packet);
                 ready = true;
             }
-            else if (ClockReset || Cars.Count != packet.Players.Count) Cars.Initialize(packet);
-            else Cars.Update(packet);
 
-            // AirState indicates currently active forces, not whether a jump was already consumed.
-            for (int i = 0; i < packet.Players.Count; i++) JumpState.Apply(Cars.AllCars[i], packet.Players[i]);
+            SharedWorldDecision world = WorldFrames.Step(
+                packet.MatchInfo.FrameNum,
+                packet.MatchInfo.SecondsElapsed,
+                packet.Players.Count);
+
+            if (world.Refresh)
+            {
+                bool initializeCars = !Game.Initialized || world.Reinitialize ||
+                    Cars.Count != packet.Players.Count;
+
+                if (initializeCars)
+                {
+                    Game.Initialize();
+                    Field.Initialize(FieldInfo);
+                    Cars.Initialize(packet);
+                }
+                else
+                {
+                    Cars.Update(packet);
+                }
+
+                // AirState indicates currently active forces, not whether a jump was already consumed.
+                for (int i = 0; i < packet.Players.Count; i++)
+                    JumpState.Apply(Cars.AllCars[i], packet.Players[i]);
+
+                Game.Update(packet);
+                Field.Update(packet);
+                if (packet.Balls.Count > 0)
+                    Ball.Update(this, packet.Balls[0]);
+            }
+
+            // Persistent jump availability and lifecycle transitions are bot-instance state,
+            // so they must be sampled for every bot even when the shared world refresh is skipped.
             Jump = new JumpState(packet.Players[Index]);
-            Game.Update(packet);
-            Field.Update(packet);
-            if (packet.Balls.Count > 0) Ball.Update(this, packet.Balls[0]);
-            bool kickoff = Game.MatchPhase == MatchPhase.Kickoff;
+            bool kickoff = packet.MatchInfo.MatchPhase == MatchPhase.Kickoff;
             if ((kickoff && !IsKickoff) || ClockReset)
             {
                 Action = null;
