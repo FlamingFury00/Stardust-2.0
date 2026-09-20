@@ -1,7 +1,7 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics]
+    branches: [feature/stardust-3-control-and-mechanics, pro/stardust-shared-world]
   pull_request:
     branches: [v5]
 permissions:
@@ -32,3 +32,5 @@ jobs:
         run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
       - name: Run runtime performance regressions
         run: dotnet run --project tests/Stardust.Performance/Stardust.Performance.csproj --configuration Release
+      - name: Run shared-world snapshot regressions
+        run: dotnet run --project tests/Stardust.Snapshot/Stardust.Snapshot.csproj --configuration Release
