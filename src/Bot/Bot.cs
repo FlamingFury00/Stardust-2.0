@@ -86,7 +86,12 @@ namespace Bot
                     defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
                     Action = defensiveShot;
                 }
-                if (Action == null) DriveTo(Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true), 2300, false);
+                if (Action == null)
+                {
+                    Vec3 rawGuard = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true);
+                    Vec3 guard = Tactics.GoalReturnTarget(Me, rawGuard, OurGoal.Location);
+                    DriveTo(guard, Tactics.GuardSpeed(Me, guard, 2300), false, allowHandbrake: false);
+                }
                 SetDecision("defend / predicted goal");
                 return;
             }
@@ -102,6 +107,20 @@ namespace Bot
             {
                 if (!underPressure || Situation.TeamRank == 0) return;
                 Action = null;
+            }
+            if (Action is GetBoost refill)
+            {
+                // Preserve a selected refill across tactical replans. Abort it immediately when
+                // pressure arrives or this car becomes the elected challenger.
+                if (underPressure || Situation.TeamRank == 0)
+                    Action = null;
+                else if (!refill.Finished)
+                {
+                    SetDecision(refill.ChosenBoost?.IsLarge == true ? "support / full-pad refill" : "support / pad refill");
+                    return;
+                }
+                else
+                    Action = null;
             }
             if (!(Action is Drive)) Action = null;
             bool owner = Situation.TeamRank == 0;
@@ -133,10 +152,21 @@ namespace Bot
                 }
             }
             bool anchor = Situation.TeamCount <= 2 ? Situation.TeamRank > 0 : Situation.TeamRank >= 2;
-            Vec3 support = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, anchor);
-            if (!underPressure && TryBoostDetour(support)) return;
-            DriveTo(support, anchor ? 1800 : 2100, !anchor && !underPressure);
-            if (underPressure && Situation.TeamRank > 0)
+            Vec3 rawSupport = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, anchor);
+            Vec3 support = Tactics.GoalReturnTarget(Me, rawSupport, OurGoal.Location);
+            bool exitingGoal = support.FlatDist(rawSupport) > 1;
+
+            if (!underPressure && !exitingGoal && TryBoostDetour(support)) return;
+
+            if (anchor || exitingGoal)
+                DriveTo(support, Tactics.GuardSpeed(Me, support, anchor ? 1800 : 2100),
+                    allowDodges: false, allowHandbrake: false);
+            else
+                DriveTo(support, 2100, !underPressure, allowHandbrake: true);
+
+            if (exitingGoal)
+                SetDecision("defend / exit net");
+            else if (underPressure && Situation.TeamRank > 0)
                 SetDecision(anchor ? "defend / anticipated-contact anchor" : "defend / anticipated-contact support");
             else
                 SetDecision(owner ? "defend / shadow challenge" : anchor ? "support / deep anchor" : "support / wide lane");
@@ -148,11 +178,14 @@ namespace Bot
             if (Ball.Location.y * Field.Side(Team) > 2500) return false;
             Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team, Situation.OpponentEta);
             if (pad == null) return false;
-            DriveTo(pad.Location, 1800, false);
-            SetDecision(pad.IsLarge ? "support / on-route large boost" : "support / small-pad route");
+
+            // Use the existing persistent pickup action instead of recreating a Drive every plan tick.
+            Action = new GetBoost(Me, pad.Index, interruptible: true);
+            SetDecision(pad.IsLarge ? "support / full-pad refill" : "support / small-pad route");
             return true;
         }
-        private void DriveTo(Vec3 destination, float speed, bool allowDodges)
+
+        private void DriveTo(Vec3 destination, float speed, bool allowDodges, bool allowHandbrake = true)
         {
             if (!ControlMath.Finite(destination)) destination = OurGoal.Location;
             if (Action is Drive drive)
@@ -160,9 +193,17 @@ namespace Bot
                 drive.Target = destination;
                 drive.TargetSpeed = speed;
                 drive.AllowDodges = allowDodges;
+                drive.AllowHandbrake = allowHandbrake;
                 drive.WasteBoost = false;
             }
-            else Action = new Drive(Me, destination, speed, allowDodges, wasteBoost: false);
+            else
+            {
+                var drive = new Drive(Me, destination, speed, allowDodges, wasteBoost: false)
+                {
+                    AllowHandbrake = allowHandbrake
+                };
+                Action = drive;
+            }
         }
         private void SetDecision(string decision)
         {
