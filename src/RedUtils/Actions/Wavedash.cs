@@ -75,7 +75,7 @@ namespace RedUtils
 			{
 				// Aim slightly above the ground, in the direction given
 				Vec3 landingNormal = Field.FindLandingSurface(bot.Me).Normal;
-				bot.AimAt(bot.Me.Location + (Direction.Length() > 0 ? Direction.FlatNorm(landingNormal) : bot.Me.Velocity.FlatNorm(landingNormal)) + landingNormal * 0.2f, landingNormal);
+				bot.AimAtNoAlloc(bot.Me.Location + (Direction.Length() > 0 ? Direction.FlatNorm(landingNormal) : bot.Me.Velocity.FlatNorm(landingNormal)) + landingNormal * 0.2f, landingNormal);
 			}
 			else
 			{
