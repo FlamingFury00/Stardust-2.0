@@ -1,7 +1,6 @@
 ﻿using RedUtils.Math;
 using RLBot.Flat;
 using System;
-using System.Linq;
 
 namespace RedUtils
 {
@@ -62,7 +61,17 @@ namespace RedUtils
             Location = new Vec3(ballInfo.Physics.Location);
             Velocity = new Vec3(ballInfo.Physics.Velocity);
             AngularVelocity = new Vec3(ballInfo.Physics.AngularVelocity);
-			LatestTouch = Cars.AllCars.Where(x => x != null && x.LatestTouch != null).OrderByDescending(x => x.LatestTouch.Time).Select(x => x.LatestTouch).FirstOrDefault();
+            LatestTouch = null;
+            float latestTouchTime = float.NegativeInfinity;
+            for (int i = 0; i < Cars.AllCars.Count; i++)
+            {
+                BallTouch touch = Cars.AllCars[i]?.LatestTouch;
+                if (touch != null && touch.Time > latestTouchTime)
+                {
+                    latestTouchTime = touch.Time;
+                    LatestTouch = touch;
+                }
+            }
             Prediction = bot.GetBallPrediction();
         }
 
@@ -94,8 +103,10 @@ namespace RedUtils
 			int latestTouchCar = -1;
 			for (int i = 0; i < Cars.AllCars.Count; ++i)
 			{
-				if (Cars.AllCars[i].LatestTouch.Time > latestTouchTime)
+                BallTouch touch = Cars.AllCars[i]?.LatestTouch;
+				if (touch != null && touch.Time > latestTouchTime)
 				{
+                    latestTouchTime = touch.Time;
 					latestTouchCar = i;
                 }
 			}
