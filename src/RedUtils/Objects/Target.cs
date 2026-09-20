@@ -10,6 +10,11 @@ namespace RedUtils
 		/// <para>For example, an error of 0 would mean shots with a very extreme angle, with zero room for error, would be allowed</para>
 		/// </summary>
 		private const float MinError = 50f;
+		/// <summary>
+		/// Extra center-of-ball clearance from attacking posts/crossbar beyond the ball radius.
+		/// This leaves the floor unchanged so rolling finishes remain available.
+		/// </summary>
+		public const float GoalSafetyMargin = 70f;
 
 		/// <summary>The top left point of the target
 		/// <para>Note that the ball has to fit between the points, meaning the points have to be far enough apart for a ball to fit between them</para>
@@ -48,8 +53,12 @@ namespace RedUtils
 			}
 			else
 			{
-				TopLeft = goal.TopLeftCorner;
-				BottomRight = goal.BottomRightCorner;
+				float side = Field.Side(goal.Team);
+				// Do not plan nominal attacking contacts on the mathematical edge of the
+				// scoring aperture. Contact/orientation error near an edge becomes a post
+				// or crossbar hit; preserve the floor so ground shots can still roll in.
+				TopLeft = goal.TopLeftCorner - Vec3.X * side * GoalSafetyMargin - Vec3.Up * GoalSafetyMargin;
+				BottomRight = goal.BottomRightCorner + Vec3.X * side * GoalSafetyMargin;
 			}
 			TargetSurface = new Surface("target", (TopLeft + BottomRight) / 2 + Vec3.Y * Field.Side(goal.Team) * Ball.Radius, -Vec3.Y * Field.Side(goal.Team),
 							new Vec3(MathF.Max(TopLeft.FlatDist(BottomRight) - Ball.Radius * 2, 1), MathF.Max(MathF.Abs(TopLeft.z - BottomRight.z) - Ball.Radius * 2, 1)),
