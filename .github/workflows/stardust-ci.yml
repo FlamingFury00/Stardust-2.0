@@ -28,3 +28,5 @@ jobs:
         run: dotnet run --project tests/Stardust.Tests/Stardust.Tests.csproj --configuration Release
       - name: Run analytic attitude and route checks
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
+      - name: Run movement and recovery regressions
+        run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
