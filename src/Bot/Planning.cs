@@ -181,6 +181,41 @@ namespace Bot
             return earliest;
         }
 
+        /// <summary>
+        /// Braking-aware speed for defensive parking. Rocket League braking is ~3500 uu/s^2;
+        /// leave a buffer so the car reaches the guard point under control instead of crossing it.
+        /// </summary>
+        public static float GuardSpeed(Car car, Vec3 target, float cruiseSpeed)
+        {
+            if (car == null || !ControlMath.Finite(target) || !float.IsFinite(cruiseSpeed))
+                return 350;
+
+            float distance = Field.LimitToNearestSurface(car.Location).Dist(Field.LimitToNearestSurface(target));
+            float usable = MathF.Max(0, distance - 120);
+            float brakingSpeed = MathF.Sqrt(2 * Car.BrakeAccel * usable);
+            return System.Math.Clamp(brakingSpeed, 350, MathF.Max(350, cruiseSpeed));
+        }
+
+        /// <summary>
+        /// A car already behind the goal line must first leave through the central mouth before it
+        /// is asked to park elsewhere. This avoids diagonal post cuts and driving deeper into net.
+        /// </summary>
+        public static Vec3 GoalReturnTarget(Car car, Vec3 desiredGuard, Vec3 ownGoal)
+        {
+            if (car == null || !ControlMath.Finite(desiredGuard) || !ControlMath.Finite(ownGoal))
+                return desiredGuard;
+
+            float side = ownGoal.y < 0 ? -1 : 1;
+            bool behindLine = car.Location.y * side > MathF.Abs(ownGoal.y) + 40;
+            bool insideMouth = MathF.Abs(car.Location.x) < Goal.Width / 2 + 220;
+            if (!behindLine || !insideMouth) return desiredGuard;
+
+            float safeHalfWidth = Goal.Width / 2 - 160;
+            float x = System.Math.Clamp(desiredGuard.x, -safeHalfWidth, safeHalfWidth);
+            float y = side * (MathF.Abs(ownGoal.y) - 300);
+            return new Vec3(x, y, 17);
+        }
+
         /// <summary>Bounded search. Expensive shot solvers run at tactical cadence, never at 120 Hz.</summary>
         public static Shot SelectShot(RUBot bot, bool emergency, float opponentEta, Func<float, bool> claimed)
         {
