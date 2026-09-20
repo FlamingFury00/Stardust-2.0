@@ -96,11 +96,12 @@ namespace Bot
                 else
                 {
                     defensiveShot = null;
-                    if (Action is Shot || Action is IPossessionAction || Action is GetBoost)
-                        Action = null;
                 }
 
-                if (Action == null)
+                // Non-challengers must be retargeted every critical plan, even if their current
+                // action is already a Drive. Otherwise a stale support Drive keeps circling at
+                // its old distant destination while the emergency guard exists only on paper.
+                if (!criticalOwner || Action == null)
                 {
                     Vec3 rawGuard = Tactics.EmergencyGuardTarget(
                         Ball.Location, OurGoal.Location, Situation.TeamRank, Situation.TeamCount);
