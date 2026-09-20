@@ -45,3 +45,5 @@ jobs:
         run: dotnet run --project tests/Stardust.TeamDefense/Stardust.TeamDefense.csproj --configuration Release
       - name: Run boost economy and goal-return regressions
         run: dotnet run --project tests/Stardust.BoostGoal/Stardust.BoostGoal.csproj --configuration Release
+      - name: Run possession mechanics physics regressions
+        run: dotnet run --project tests/Stardust.MechanicsPhysics/Stardust.MechanicsPhysics.csproj --configuration Release
