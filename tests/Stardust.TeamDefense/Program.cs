@@ -38,7 +38,7 @@ Test("roles: support and anchor cannot collapse onto the same lane", () =>
 
 Test("opponent model: car adapter exposes RLBot v5 last input", () =>
 {
-    FieldInfo? field = typeof(Car).GetField("LastInput", BindingFlags.Public | BindingFlags.Instance);
+    System.Reflection.FieldInfo? field = typeof(Car).GetField("LastInput", BindingFlags.Public | BindingFlags.Instance);
     Check(field != null && field.FieldType == typeof(ControllerStateT),
         "Car discards PlayerInfo.last_input, so opponent intent cannot be modeled");
 });
