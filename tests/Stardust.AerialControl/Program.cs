@@ -70,6 +70,25 @@ Test("boost pulse: zero fuel never starts a burst", () =>
     Check(duty == 0, $"zero-fuel duty was {duty:P1}");
 });
 
+Test("boost pulse: duty remains bounded across control cadences", () =>
+{
+    foreach (float dt in new[] { 1f / 120, 1f / 60, 1f / 30, 1f / 15 })
+    {
+        float moderate = EffectiveDuty(300, dt: dt);
+        float low = EffectiveDuty(150, dt: dt);
+        Check(moderate > 0.12f && moderate < 0.45f,
+            $"300 uu/s^2 duty at {1 / dt:F0} Hz was {moderate:P1}");
+        Check(low > 0.025f && low < 0.20f,
+            $"150 uu/s^2 duty at {1 / dt:F0} Hz was {low:P1}");
+    }
+});
+
+Test("boost pulse: near-full demand remains continuous", () =>
+{
+    float duty = EffectiveDuty(1000);
+    Check(duty > 0.95f, $"near-full demand duty was {duty:P1}");
+});
+
 Test("guidance: ballistic endpoint requires no control acceleration", () =>
 {
     Vec3 position = new(100, -200, 600), velocity = new(700, 50, 250), gravity = new(0, 0, -650);
