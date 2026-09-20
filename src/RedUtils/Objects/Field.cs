@@ -2,7 +2,6 @@
 using RLBot.Flat;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace RedUtils
 {
@@ -158,35 +157,49 @@ namespace RedUtils
 		/// </summary>
 		public static Surface NearestSurface(Vec3 pos)
 		{
-			Surface closestSurface = DrivableSurfaces.First().Value;
+			Surface closestSurface = null;
+			float closestDistanceSquared = float.PositiveInfinity;
 			foreach (Surface surface in DrivableSurfaces.Values)
 			{
-				if (pos.Dist(closestSurface.Limit(pos)) > pos.Dist(surface.Limit(pos)))
+				Vec3 delta = pos - surface.Limit(pos);
+				float distanceSquared = delta.Dot(delta);
+				if (distanceSquared < closestDistanceSquared)
 				{
+					closestDistanceSquared = distanceSquared;
 					closestSurface = surface;
 				}
 			}
-
-			return closestSurface;
+			return closestSurface ?? throw new InvalidOperationException("No drivable surfaces are configured.");
 		}
 
-		/// <summary>Returns the closest surface to a given point</summary>
-		/// <param name="excludedSurfaces">A list of surfacaes you don't want to check</param>
+		/// <summary>Returns the closest surface to a given point.</summary>
+		/// <param name="excludedSurfaces">Surfaces to ignore without allocating a filtered collection.</param>
 		public static Surface NearestSurface(Vec3 pos, Surface[] excludedSurfaces)
 		{
-			List<Surface> filteredSurfaces = new List<Surface>(Surfaces.Values);
-			foreach (Surface surface in excludedSurfaces) filteredSurfaces.Remove(surface);
-
-			Surface closestSurface = filteredSurfaces.First();
-			foreach (Surface surface in filteredSurfaces)
+			Surface closestSurface = null;
+			float closestDistanceSquared = float.PositiveInfinity;
+			foreach (Surface surface in Surfaces.Values)
 			{
-				if (pos.Dist(closestSurface.Limit(pos)) > pos.Dist(surface.Limit(pos)))
+				bool excluded = false;
+				for (int i = 0; i < excludedSurfaces.Length; i++)
 				{
+					if (ReferenceEquals(surface, excludedSurfaces[i]))
+					{
+						excluded = true;
+						break;
+					}
+				}
+				if (excluded) continue;
+
+				Vec3 delta = pos - surface.Limit(pos);
+				float distanceSquared = delta.Dot(delta);
+				if (distanceSquared < closestDistanceSquared)
+				{
+					closestDistanceSquared = distanceSquared;
 					closestSurface = surface;
 				}
 			}
-
-			return closestSurface;
+			return closestSurface ?? throw new InvalidOperationException("All field surfaces were excluded.");
 		}
 
 		/// <summary>Returns the surface that the car will land on</summary>
