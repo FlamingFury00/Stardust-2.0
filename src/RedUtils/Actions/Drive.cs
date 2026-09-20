@@ -22,6 +22,8 @@ namespace RedUtils
 		public bool AllowDodges;
 		/// <summary>Whether or not we are going to use any amount of boost neccesary to mantain our target speed</summary>
 		public bool WasteBoost;
+		/// <summary>Whether this drive may powerslide. Disable for precise goal-mouth parking.</summary>
+		public bool AllowHandbrake = true;
 		/// <summary>This action's subaction, which could be a dodge, halfflip, speedflip, etc</summary>
 		public IAction Action;
 
@@ -139,8 +141,9 @@ namespace RedUtils
 				// Only boost when we are facing our target, and when we really need to
 				bot.Controller.Boost = bot.Controller.Boost && (angleToTarget < 0.35f || (angleToTarget < 0.85f && !bot.Me.IsGrounded)) && !Backwards && (WasteBoost || (TargetSpeed > 1800 && forwardSpeed > 1200));
 				// Drift if the target is behind us, or when we need to turn really sharply
-				bot.Controller.Handbrake = (MathF.Abs(angleToTarget) > 2.2f || (Field.DistanceBetweenPoints(nearestTurnCenter, Target) < turnRadius - 40 && SpeedFromTurnRadius(TurnRadius(bot.Me, Target)) < 350))
-											&& mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
+				bot.Controller.Handbrake = AllowHandbrake &&
+					(MathF.Abs(angleToTarget) > 2.2f || (Field.DistanceBetweenPoints(nearestTurnCenter, Target) < turnRadius - 40 && SpeedFromTurnRadius(TurnRadius(bot.Me, Target)) < 350)) &&
+					mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
 
 				// Draws a debug line to represent the final target
 				bot.Renderer?.Line3D(finalTarget, finalTarget + Field.NearestSurface(finalTarget).Normal * 200, Color.LimeGreen);

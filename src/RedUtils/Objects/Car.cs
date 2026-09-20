@@ -75,6 +75,8 @@ namespace RedUtils
 		public bool IsDemolished;
 		/// <summary>If the car is currently supersonic, and therefore can demolish a car</summary>
 		public bool IsSupersonic;
+		/// <summary>The latest controller input reported by RLBot v5 for this player.</summary>
+		public ControllerStateT LastInput;
 
 		/// <summary>The car's score on the scoreboard</summary>
 		public uint Score { get; private set; }
@@ -116,6 +118,7 @@ namespace RedUtils
 			HasDoubleJumped = false;
 			IsDemolished = false;
 			IsSupersonic = false;
+			LastInput = new ControllerStateT();
 
 			Score = 0;
 			Goals = 0;
@@ -154,6 +157,7 @@ namespace RedUtils
 			HasDoubleJumped = originalCar.HasDoubleJumped;
 			IsDemolished = originalCar.IsDemolished;
 			IsSupersonic = originalCar.IsSupersonic;
+			LastInput = CloneInput(originalCar.LastInput);
 
 			Score = originalCar.Score;
 			Goals = originalCar.Goals;
@@ -189,6 +193,7 @@ namespace RedUtils
             HasDoubleJumped = playerInfo.AirState == AirState.DoubleJumping || playerInfo.AirState == AirState.Dodging;
             IsDemolished = playerInfo.DemolishedTimeout > 0;
             IsSupersonic = playerInfo.IsSupersonic;
+            LastInput = CloneInput(playerInfo.LastInput);
 
             Score = playerInfo.ScoreInfo.Score;
             Goals = playerInfo.ScoreInfo.Goals;
@@ -222,6 +227,7 @@ namespace RedUtils
             HasDoubleJumped = playerInfo.AirState == AirState.DoubleJumping || playerInfo.AirState == AirState.Dodging;
             IsDemolished = playerInfo.DemolishedTimeout > 0;
             IsSupersonic = playerInfo.IsSupersonic;
+            LastInput = CloneInput(playerInfo.LastInput);
 
             Score = playerInfo.ScoreInfo.Score;
             Goals = playerInfo.ScoreInfo.Goals;
@@ -236,6 +242,23 @@ namespace RedUtils
 
             _hitboxDimensions = new Vec3(playerInfo.Hitbox.Length, playerInfo.Hitbox.Width, playerInfo.Hitbox.Height);
             _hitboxOffset = new Vec3(playerInfo.HitboxOffset);
+        }
+
+        private static ControllerStateT CloneInput(ControllerStateT input)
+        {
+            if (input == null) return new ControllerStateT();
+            return new ControllerStateT
+            {
+                Throttle = input.Throttle,
+                Steer = input.Steer,
+                Pitch = input.Pitch,
+                Yaw = input.Yaw,
+                Roll = input.Roll,
+                Jump = input.Jump,
+                Boost = input.Boost,
+                Handbrake = input.Handbrake,
+                UseItem = input.UseItem
+            };
         }
 
         /// <summary>Gives the vector back in local coordinates relative to the car. 

@@ -60,5 +60,25 @@ Test("aerial: zero-correction high-speed coast is feasible below max speed", () 
     Check(boost >= 0, $"coasting at {car.Velocity.Length():F0} uu/s below max was rejected");
 });
 
+Test("target: attacking goal aperture keeps post clearance beyond ball radius", () =>
+{
+    var target = new Target(new Goal(1));
+    float halfWidth = target.TargetSurface.Size.x / 2;
+    float allowed = Goal.Width / 2 - Ball.Radius - 60;
+    Check(halfWidth <= allowed + 0.01f,
+        $"attacking half-aperture {halfWidth:F1} leaves less than 60 uu post safety margin");
+});
+
+Test("target: attacking goal aperture keeps crossbar clearance without lifting floor", () =>
+{
+    var target = new Target(new Goal(1));
+    float upper = target.TargetSurface.Location.z + target.TargetSurface.Size.y / 2;
+    float lower = target.TargetSurface.Location.z - target.TargetSurface.Size.y / 2;
+    Check(upper <= Goal.Height - Ball.Radius - 60 + 0.01f,
+        $"upper target {upper:F1} leaves less than 60 uu crossbar safety margin");
+    Check(lower <= Ball.Radius + 1,
+        $"lower target {lower:F1} would unnecessarily remove rolling shots");
+});
+
 Console.WriteLine($"SHOOTING RESULT: {passed} passed, {failed} failed.");
 Environment.ExitCode = failed == 0 ? 0 : 1;

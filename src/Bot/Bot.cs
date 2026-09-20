@@ -21,13 +21,19 @@ namespace Bot
         public string Decision { get; private set; } = "startup";
         public bool Shooting { get; set; }
         private float nextPlan = float.NegativeInfinity;
-        private bool defending;
+        private bool defending, pressured;
         private Shot defensiveShot;
         public Stardust(string defaultAgentId = null) : base(defaultAgentId) { }
 
         public override void Run()
         {
-            if (ClockReset) { nextPlan = float.NegativeInfinity; defending = false; defensiveShot = null; }
+            if (ClockReset)
+            {
+                nextPlan = float.NegativeInfinity;
+                defending = false;
+                pressured = false;
+                defensiveShot = null;
+            }
             Shooting = Action is Shot;
             if (IsKickoff)
             {
@@ -47,17 +53,30 @@ namespace Bot
             }
 
             float threat = Tactics.GoalThreat(Ball.Prediction.Slices, OurGoal.Location, Game.Time);
+            float pressureTime = Tactics.OpponentPressure(LivingOpponents, Ball.MainBall, OurGoal.Location);
             bool emergency = float.IsFinite(threat);
+            bool underPressure = float.IsFinite(pressureTime);
             bool risingThreat = emergency && !defending;
-            // Leave the rising-threat edge pending while a physically committed dodge finishes.
-            if (Action != null && !Action.Interruptible) return;
+            bool pressureEdge = underPressure != pressured;
+            if (pressureEdge) nextPlan = float.NegativeInfinity;
+
+            // Leave threat changes pending while a physically committed dodge/flip finishes.
+            if (Action != null && !Action.Interruptible)
+            {
+                defending = emergency;
+                pressured = underPressure;
+                return;
+            }
+
             defending = emergency;
+            pressured = underPressure;
             if (Action is Shot oldShot && !oldShot.IsPredictionValid()) Action = null;
             if (risingThreat) { Action = null; nextPlan = float.NegativeInfinity; }
             if (Action == null) nextPlan = MathF.Min(nextPlan, Game.Time);
             if (Game.Time < nextPlan) return;
-            nextPlan = Game.Time + 0.12f;
             Situation = Tactics.Evaluate(this);
+            Situation.PressureTime = pressureTime;
+            nextPlan = Game.Time + (underPressure ? 0.05f : 0.12f);
 
             if (emergency)
             {
@@ -67,15 +86,44 @@ namespace Bot
                     defensiveShot = Tactics.SelectShot(this, true, Situation.OpponentEta, _ => false);
                     Action = defensiveShot;
                 }
-                if (Action == null) DriveTo(Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true), 2300, false);
+                if (Action == null)
+                {
+                    Vec3 rawGuard = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true);
+                    Vec3 guard = Tactics.GoalReturnTarget(Me, rawGuard, OurGoal.Location);
+                    DriveTo(guard, Tactics.GuardSpeed(Me, guard, 2300), false, allowHandbrake: false);
+                }
                 SetDecision("defend / predicted goal");
                 return;
             }
 
-            if (Action is IPossessionAction) return;
-            if (Action is Shot shot && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time)) return;
+            if (Action is IPossessionAction)
+            {
+                // A support/anchor car must not preserve an offensive possession controller into
+                // an anticipated opponent contact. The elected challenger may still finish its play.
+                if (underPressure && Situation.TeamRank > 0) Action = null;
+                else return;
+            }
+            if (Action is Shot shot && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time))
+            {
+                if (!underPressure || Situation.TeamRank == 0) return;
+                Action = null;
+            }
+            if (Action is GetBoost refill)
+            {
+                // Preserve a selected refill across tactical replans. Abort it immediately when
+                // pressure arrives or this car becomes the elected challenger.
+                if (underPressure || Situation.TeamRank == 0)
+                    Action = null;
+                else if (!refill.Finished)
+                {
+                    SetDecision(refill.ChosenBoost?.IsLarge == true ? "support / full-pad refill" : "support / pad refill");
+                    return;
+                }
+                else
+                    Action = null;
+            }
             if (!(Action is Drive)) Action = null;
-            bool owner = Situation.FirstMan == Index;
+            bool owner = Situation.TeamRank == 0;
             bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
             if (!Me.IsGrounded)
             {
@@ -89,9 +137,9 @@ namespace Bot
 
             if (owner && goalSide)
             {
-                if (Options.GroundControl && GroundDribble.CanStart(Me, Ball.MainBall, Situation.FreeTime))
+                if (!underPressure && Options.GroundControl && GroundDribble.CanStart(Me, Ball.MainBall, Situation.FreeTime))
                 { Action = new GroundDribble(); SetDecision("mechanic / ground carry"); return; }
-                if (Options.GroundControl && Situation.FreeTime > 0.7f && Ball.Location.z > 200 && GroundCatch.FindCatch(Me) != null)
+                if (!underPressure && Options.GroundControl && Situation.FreeTime > 0.7f && Ball.Location.z > 200 && GroundCatch.FindCatch(Me) != null)
                 { Action = new GroundCatch(); SetDecision("mechanic / cushion catch"); return; }
                 Shot attack = Tactics.SelectShot(this, false, Situation.OpponentEta, HasClaim);
                 if (attack != null) { Action = attack; SetDecision("attack / economical intercept"); return; }
@@ -103,10 +151,25 @@ namespace Bot
                     return;
                 }
             }
-            Vec3 support = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, Situation.LastBack);
-            if (TryBoostDetour(support)) return;
-            DriveTo(support, Situation.LastBack ? 1800 : 2100, true);
-            SetDecision(owner ? "defend / shadow challenge" : "support / goal-side cover");
+            bool anchor = Situation.TeamCount <= 2 ? Situation.TeamRank > 0 : Situation.TeamRank >= 2;
+            Vec3 rawSupport = Tactics.ShadowTarget(Ball.Location, OurGoal.Location, anchor);
+            Vec3 support = Tactics.GoalReturnTarget(Me, rawSupport, OurGoal.Location);
+            bool exitingGoal = support.FlatDist(rawSupport) > 1;
+
+            if (!underPressure && !exitingGoal && TryBoostDetour(support)) return;
+
+            if (anchor || exitingGoal)
+                DriveTo(support, Tactics.GuardSpeed(Me, support, anchor ? 1800 : 2100),
+                    allowDodges: false, allowHandbrake: false);
+            else
+                DriveTo(support, 2100, !underPressure, allowHandbrake: true);
+
+            if (exitingGoal)
+                SetDecision("defend / exit net");
+            else if (underPressure && Situation.TeamRank > 0)
+                SetDecision(anchor ? "defend / anticipated-contact anchor" : "defend / anticipated-contact support");
+            else
+                SetDecision(owner ? "defend / shadow challenge" : anchor ? "support / deep anchor" : "support / wide lane");
         }
 
         private bool HasClaim(float sliceTime) => HasTeammateEarlierShot(sliceTime);
@@ -115,11 +178,14 @@ namespace Bot
             if (Ball.Location.y * Field.Side(Team) > 2500) return false;
             Boost pad = RoutePlanner.SelectBoost(Me, Field.Boosts, Ball.Location, destination, Team, Situation.OpponentEta);
             if (pad == null) return false;
-            DriveTo(pad.Location, 1800, false);
-            SetDecision(pad.IsLarge ? "support / on-route large boost" : "support / small-pad route");
+
+            // Use the existing persistent pickup action instead of recreating a Drive every plan tick.
+            Action = new GetBoost(Me, pad.Index, interruptible: true);
+            SetDecision(pad.IsLarge ? "support / full-pad refill" : "support / small-pad route");
             return true;
         }
-        private void DriveTo(Vec3 destination, float speed, bool allowDodges)
+
+        private void DriveTo(Vec3 destination, float speed, bool allowDodges, bool allowHandbrake = true)
         {
             if (!ControlMath.Finite(destination)) destination = OurGoal.Location;
             if (Action is Drive drive)
@@ -127,16 +193,24 @@ namespace Bot
                 drive.Target = destination;
                 drive.TargetSpeed = speed;
                 drive.AllowDodges = allowDodges;
+                drive.AllowHandbrake = allowHandbrake;
                 drive.WasteBoost = false;
             }
-            else Action = new Drive(Me, destination, speed, allowDodges, wasteBoost: false);
+            else
+            {
+                var newDrive = new Drive(Me, destination, speed, allowDodges, wasteBoost: false)
+                {
+                    AllowHandbrake = allowHandbrake
+                };
+                Action = newDrive;
+            }
         }
         private void SetDecision(string decision)
         {
             if (Decision == decision) return;
             Decision = decision;
             if (Options.Trace) Console.WriteLine(FormattableString.Invariant(
-                $"stardust t={Game.Time:F3} car={Index} decision={Decision} eta={Situation.MyEta:F2} opponent={Situation.OpponentEta:F2}"));
+                $"stardust t={Game.Time:F3} car={Index} decision={Decision} rank={Situation.TeamRank}/{Situation.TeamCount} eta={Situation.MyEta:F2} opponent={Situation.OpponentEta:F2} pressure={Situation.PressureTime:F2}"));
         }
         // Retained for compatibility with the original Shadow action.
         public bool IsBack() => CanDefend(Me, OurGoal.Location) || Situation.FirstMan == Index;
