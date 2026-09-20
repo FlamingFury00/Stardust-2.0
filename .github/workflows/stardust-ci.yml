@@ -1,7 +1,10 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics]
+    branches:
+      - feature/stardust-3-control-and-mechanics
+      - v5
+      - 'pro/**'
   pull_request:
     branches: [v5]
 permissions:
@@ -30,3 +33,5 @@ jobs:
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
       - name: Run movement and recovery regressions
         run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
+      - name: Run shooting and contact regressions
+        run: dotnet run --project tests/Stardust.Shooting/Stardust.Shooting.csproj --configuration Release
