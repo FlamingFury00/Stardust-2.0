@@ -7,6 +7,15 @@ using RLBot.Manager;
 
 namespace RedUtils
 {
+	public readonly struct AimAngles
+	{
+		public readonly float Pitch;
+		public readonly float Yaw;
+		public readonly float Roll;
+		public AimAngles(float pitch, float yaw, float roll) { Pitch = pitch; Yaw = yaw; Roll = roll; }
+		public float this[int index] => index switch { 0 => Pitch, 1 => Yaw, 2 => Roll, _ => float.NaN };
+	}
+
 	public abstract partial class RUBot : Bot
 	{
 		/// <summary>Encapsulates a function that finds the best shot for any ball slice, and target.</summary>
@@ -26,23 +35,25 @@ namespace RedUtils
 		/// <summary>Turns to face a given target</summary>
 		/// <param name="up">Which direction to face your roof</param>
 		/// <returns>The target angles for pitch, yaw, and roll</returns>
-		public float[] AimAt(Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
+		public static AimAngles CalculateAimAngles(Car car, Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
 		{
-			Vec3 localTarget = Me.Local(targetLocation - Me.Location) * (backwards ? -1 : 1); // Where our target is in local coordinates
-			Vec3 safeUp = up.Length() != 0 ? up : Vec3.Up; // Make sure "up" is not the zero vector (which is the default argument)
-			Vec3 localUp = Me.Local(safeUp.Normalize()); // Where "up" is in local coordinates
-			float[] targetAngles = new float[3] {
-				MathF.Atan2(localTarget.z, localTarget.x), // Angle to pitch towards target
-				MathF.Atan2(localTarget.y, localTarget.x), // Angle to yaw towards target
-				MathF.Atan2(localUp.y, localUp.z) // Angle to roll upright
-			};
-			// Now that we have the angles we need to rotate, we feed them into the PD loops to determine the controller inputs
-			Controller.Steer = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
-			Controller.Pitch = SteerPD(targetAngles[0], Me.LocalAngularVelocity[1] * 0.2f);
-			Controller.Yaw = SteerPD(targetAngles[1], -Me.LocalAngularVelocity[2] * 0.15f);
-			Controller.Roll = SteerPD(targetAngles[2], Me.LocalAngularVelocity[0] * 0.25f);
+			Vec3 localTarget = car.Local(targetLocation - car.Location) * (backwards ? -1 : 1);
+			Vec3 safeUp = up.Length() != 0 ? up : Vec3.Up;
+			Vec3 localUp = car.Local(safeUp.Normalize());
+			return new AimAngles(
+				MathF.Atan2(localTarget.z, localTarget.x),
+				MathF.Atan2(localTarget.y, localTarget.x),
+				MathF.Atan2(localUp.y, localUp.z));
+		}
 
-			return targetAngles; // Returns the angles, which could be useful for other purposes
+		public AimAngles AimAt(Vec3 targetLocation, Vec3 up = new(), bool backwards = false)
+		{
+			AimAngles targetAngles = CalculateAimAngles(Me, targetLocation, up, backwards);
+			Controller.Steer = SteerPD(targetAngles.Yaw, -Me.LocalAngularVelocity[2] * 0.01f) * (backwards ? -1 : 1);
+			Controller.Pitch = SteerPD(targetAngles.Pitch, Me.LocalAngularVelocity[1] * 0.2f);
+			Controller.Yaw = SteerPD(targetAngles.Yaw, -Me.LocalAngularVelocity[2] * 0.15f);
+			Controller.Roll = SteerPD(targetAngles.Roll, Me.LocalAngularVelocity[0] * 0.25f);
+			return targetAngles;
 		}
 
 		/// <summary>A Proportional-Derivative control loop used for the "AimAt" function</summary>
