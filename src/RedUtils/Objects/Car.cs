@@ -232,7 +232,20 @@ namespace RedUtils
             Demolitions = playerInfo.ScoreInfo.Demolitions;
 
             if (playerInfo.LatestTouch != null)
-                LatestTouch = new BallTouch(playerInfo);
+            {
+                TouchT touch = playerInfo.LatestTouch;
+                bool sameTouch = LatestTouch != null &&
+                    LatestTouch.Time == touch.GameSeconds &&
+                    LatestTouch.BallIndex == touch.BallIndex &&
+                    LatestTouch.Location.x == touch.Location.X &&
+                    LatestTouch.Location.y == touch.Location.Y &&
+                    LatestTouch.Location.z == touch.Location.Z &&
+                    LatestTouch.Normal.x == touch.Normal.X &&
+                    LatestTouch.Normal.y == touch.Normal.Y &&
+                    LatestTouch.Normal.z == touch.Normal.Z;
+                if (!sameTouch)
+                    LatestTouch = new BallTouch(playerInfo);
+            }
 
             _hitboxDimensions = new Vec3(playerInfo.Hitbox.Length, playerInfo.Hitbox.Width, playerInfo.Hitbox.Height);
             _hitboxOffset = new Vec3(playerInfo.HitboxOffset);
