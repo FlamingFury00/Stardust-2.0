@@ -37,3 +37,5 @@ jobs:
         run: dotnet run --project tests/Stardust.Shooting/Stardust.Shooting.csproj --configuration Release
       - name: Run aerial thrust regressions
         run: dotnet run --project tests/Stardust.AerialControl/Stardust.AerialControl.csproj --configuration Release
+      - name: Run jump-edge regressions
+        run: dotnet run --project tests/Stardust.JumpEdges/Stardust.JumpEdges.csproj --configuration Release
