@@ -198,11 +198,11 @@ namespace Bot
             }
             else
             {
-                var drive = new Drive(Me, destination, speed, allowDodges, wasteBoost: false)
+                var newDrive = new Drive(Me, destination, speed, allowDodges, wasteBoost: false)
                 {
                     AllowHandbrake = allowHandbrake
                 };
-                Action = drive;
+                Action = newDrive;
             }
         }
         private void SetDecision(string decision)
