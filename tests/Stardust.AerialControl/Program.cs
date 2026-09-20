@@ -1,0 +1,72 @@
+using Bot;
+
+int passed = 0, failed = 0;
+void Test(string name, Action action)
+{
+    try { action(); passed++; Console.WriteLine($"PASS {name}"); }
+    catch (Exception e) { failed++; Console.WriteLine($"FAIL {name}: {e.Message}"); }
+}
+void Check(bool value, string message) { if (!value) throw new Exception(message); }
+
+float EffectiveDuty(float demand, float alignment = 1, float fuel = 100, float seconds = 5, float dt = 1f / 120)
+{
+    var gate = new BoostGate();
+    bool applied = false;
+    float boostingTime = 0;
+    int appliedTicks = 0, ticks = (int)MathF.Ceiling(seconds / dt);
+    for (int i = 0; i < ticks; i++)
+    {
+        float now = i * dt;
+        bool command = gate.Step(now, demand, alignment, fuel, false);
+
+        // RocketSim-style minimum boost burst model: once boost starts it keeps applying
+        // until at least 0.1 s has elapsed, even if command becomes false.
+        if (applied)
+        {
+            if (!command && boostingTime >= 0.1f)
+            {
+                applied = false;
+                boostingTime = 0;
+            }
+        }
+        else if (command)
+        {
+            applied = true;
+            boostingTime = 0;
+        }
+
+        if (applied)
+        {
+            appliedTicks++;
+            boostingTime += dt;
+        }
+    }
+    return (float)appliedTicks / ticks;
+}
+
+Test("boost pulse: moderate 300 uu/s^2 demand is not continuous boost", () =>
+{
+    float duty = EffectiveDuty(300);
+    Check(duty > 0.12f && duty < 0.45f, $"effective duty was {duty:P1}");
+});
+
+Test("boost pulse: low 150 uu/s^2 demand is not discarded", () =>
+{
+    float duty = EffectiveDuty(150);
+    Check(duty > 0.025f && duty < 0.20f, $"effective duty was {duty:P1}");
+});
+
+Test("boost pulse: unsafe alignment never starts a burst", () =>
+{
+    float duty = EffectiveDuty(500, alignment: 0.5f);
+    Check(duty == 0, $"misaligned duty was {duty:P1}");
+});
+
+Test("boost pulse: zero fuel never starts a burst", () =>
+{
+    float duty = EffectiveDuty(500, fuel: 0);
+    Check(duty == 0, $"zero-fuel duty was {duty:P1}");
+});
+
+Console.WriteLine($"AERIAL CONTROL RESULT: {passed} passed, {failed} failed.");
+Environment.ExitCode = failed == 0 ? 0 : 1;
