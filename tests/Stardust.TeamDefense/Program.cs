@@ -43,10 +43,42 @@ Test("opponent model: car adapter exposes RLBot v5 last input", () =>
         "Car discards PlayerInfo.last_input, so opponent intent cannot be modeled");
 });
 
-Test("opponent model: pre-contact pressure detector exists", () =>
+Test("opponent model: attacking input creates pressure before a ball-only goal threat", () =>
 {
-    MethodInfo? method = typeof(Tactics).GetMethod("OpponentPressure", BindingFlags.Public | BindingFlags.Static);
-    Check(method != null, "no pre-contact opponent pressure detector exists; defense waits for ball-only threat");
+    var opponent = new Car
+    {
+        Index = 3,
+        Team = 1,
+        Location = new Vec3(0, 950, 17),
+        Velocity = new Vec3(0, -900, 0),
+        Orientation = new Mat3x3(new Vec3(0, -MathF.PI / 2, 0)),
+        IsGrounded = true,
+        Boost = 40,
+        LastInput = new ControllerStateT { Throttle = 1, Boost = true }
+    };
+    var ball = new Ball(new Vec3(0, 0, 100), Vec3.Zero);
+    float pressure = Tactics.OpponentPressure(new[] { opponent }, ball, new Vec3(0, -5120, 0));
+    Check(float.IsFinite(pressure) && pressure < 1.35f, $"attacking contact intent was not detected: {pressure}");
+    Check(float.IsPositiveInfinity(Tactics.GoalThreat(new[] { new BallSlice(Game.Time + 1, ball.location, ball.velocity) },
+        new Vec3(0, -5120, 0), Game.Time)), "fixture accidentally already contains a goal-bound ball path");
+});
+
+Test("opponent model: player facing and driving away does not create pressure", () =>
+{
+    var opponent = new Car
+    {
+        Index = 3,
+        Team = 1,
+        Location = new Vec3(0, 950, 17),
+        Velocity = new Vec3(0, 800, 0),
+        Orientation = new Mat3x3(new Vec3(0, MathF.PI / 2, 0)),
+        IsGrounded = true,
+        Boost = 40,
+        LastInput = new ControllerStateT { Throttle = 1 }
+    };
+    float pressure = Tactics.OpponentPressure(new[] { opponent },
+        new Ball(new Vec3(0, 0, 100), Vec3.Zero), new Vec3(0, -5120, 0));
+    Check(float.IsPositiveInfinity(pressure), $"retreating opponent created false pressure: {pressure}");
 });
 
 Console.WriteLine($"TEAM DEFENSE RESULT: {passed} passed, {failed} failed.");
