@@ -70,9 +70,9 @@ namespace Bot
             var result = new TacticalFrame { MyEta = GroundEta(bot.Me), FirstMan = bot.Index, LastBack = true };
             float best = result.MyEta;
             int side = Field.Side(bot.Team);
-            foreach (Car car in Cars.AllLivingCars)
+            foreach (Car car in Cars.AllCars)
             {
-                if (car.Index == bot.Index) continue;
+                if (car.IsDemolished || car.Index == bot.Index) continue;
                 float eta = GroundEta(car);
                 if (car.Team != bot.Team) { result.OpponentEta = MathF.Min(result.OpponentEta, eta); continue; }
                 result.TeammateEta = MathF.Min(result.TeammateEta, eta);
