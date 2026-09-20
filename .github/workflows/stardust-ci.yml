@@ -30,3 +30,5 @@ jobs:
         run: dotnet run --project tests/Stardust.ModelChecks/Stardust.ModelChecks.csproj --configuration Release
       - name: Run movement and recovery regressions
         run: dotnet run --project tests/Stardust.Movement/Stardust.Movement.csproj --configuration Release
+      - name: Run runtime performance regressions
+        run: dotnet run --project tests/Stardust.Performance/Stardust.Performance.csproj --configuration Release
