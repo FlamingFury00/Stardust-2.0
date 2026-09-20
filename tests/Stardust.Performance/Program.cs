@@ -64,6 +64,31 @@ Test("surface lookup: warm queries must not allocate per call", () =>
     Check(allocated <= 4096, $"surface lookup allocated {allocated} bytes for 4000 warm queries");
 });
 
+Test("aim math: value result preserves pitch/yaw/roll contract without heap allocation", () =>
+{
+    var car = new Car
+    {
+        Location = Vec3.Zero,
+        Orientation = new Mat3x3(Vec3.Zero),
+        LocalAngularVelocity = Vec3.Zero
+    };
+
+    AimAngles forward = RUBot.CalculateAimAngles(car, new Vec3(1000, 0, 0));
+    Check(MathF.Abs(forward.Pitch) < 0.0001f && MathF.Abs(forward.Yaw) < 0.0001f,
+        $"forward target produced pitch={forward.Pitch}, yaw={forward.Yaw}");
+    AimAngles left = RUBot.CalculateAimAngles(car, new Vec3(0, 1000, 0));
+    Check(MathF.Abs(left.Yaw - MathF.PI / 2) < 0.0002f, $"left yaw was {left.Yaw}");
+
+    for (int i = 0; i < 50; i++)
+        RUBot.CalculateAimAngles(car, new Vec3(1000, i, 50), Vec3.Up);
+
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < 20000; i++)
+        _ = RUBot.CalculateAimAngles(car, new Vec3(1000, i % 200 - 100, i % 80), Vec3.Up);
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+    Check(allocated <= 1024, $"aim calculation allocated {allocated} bytes");
+});
+
 Test("drive physics: ETA rollout is allocation-free after warmup", () =>
 {
     for (int i = 0; i < 20; i++) DrivePhysics.TravelTime(4000, 300, 40);
