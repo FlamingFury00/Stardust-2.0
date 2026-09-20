@@ -325,7 +325,7 @@ Test("aerial carry: availability respects boost and relative speed", () =>
 });
 Test("reset: entry requires an already spent flip", () =>
 {
-    var car = AirCar(); var ball = new Ball(new Vec3(80, 0, 750), car.Velocity);
+    var car = AirCar(); var ball = new Ball(new Vec3(80, 0, 650), car.Velocity);
     Check(FlipReset.CanStart(car, ball, Jump(true, true)));
     Check(!FlipReset.CanStart(car, ball, Jump()));
     car.Boost = 5; Check(!FlipReset.CanStart(car, ball, Jump(true, true)));
@@ -359,6 +359,43 @@ Test("support: deep defense chooses the opposite post on both teams", () =>
     Vec3 blue = Tactics.ShadowTarget(new Vec3(2000, -4000, 100), new Vec3(0, -5120, 0), true);
     Vec3 orange = Tactics.ShadowTarget(new Vec3(-2000, 4000, 100), new Vec3(0, 5120, 0), true);
     Check(blue.x < 0 && blue.y < -4000 && orange.x > 0 && orange.y > 4000);
+});
+
+Test("geometry: planar angle ignores vertical components", () =>
+{
+    Near(new Vec3(1, 0, 1).FlatAngle(new Vec3(1, 0, -5)), 0);
+    Near(new Vec3(1, 0, 8).FlatAngle(new Vec3(0, 1, -3)), MathF.PI / 2, 0.0002f);
+});
+Test("field: repeated initialization does not duplicate boost pads", () =>
+{
+    var field = new FieldInfoT
+    {
+        BoostPads = new List<BoostPadT>
+        {
+            new() { Location = new Vector3T { X = 100, Y = 200, Z = 0 }, IsFullBoost = true }
+        }
+    };
+    Field.Initialize(field);
+    Field.Initialize(field);
+    Check(Field.Boosts.Count == 1, $"expected 1 boost pad, got {Field.Boosts.Count}");
+});
+Test("boost: inactive timer is converted from elapsed to remaining", () =>
+{
+    var full = new Boost(0, new BoostPadT { Location = new Vector3T(), IsFullBoost = true });
+    full.Update(new BoostPadStateT { IsActive = false, Timer = 4 });
+    Near(full.TimeUntilActive, 6);
+
+    var small = new Boost(1, new BoostPadT { Location = new Vector3T(), IsFullBoost = false });
+    small.Update(new BoostPadStateT { IsActive = false, Timer = 1.5f });
+    Near(small.TimeUntilActive, 2.5f);
+    small.Update(new BoostPadStateT { IsActive = true, Timer = 0 });
+    Near(small.TimeUntilActive, 0);
+});
+Test("aerial: circular turn displacement scales both components by radius", () =>
+{
+    Vec3 displacement = AerialShot.TurnDisplacement(Vec3.X, Vec3.Y, 500, MathF.PI / 2);
+    Near(displacement.x, 500, 0.001f);
+    Near(displacement.y, 500, 0.001f);
 });
 
 Console.WriteLine($"RESULT {passed} passed, {failed} failed; no in-game performance claim.");

@@ -88,7 +88,7 @@ namespace Bot
         private float lastSwitch = float.NegativeInfinity;
         public bool Step(float now, float demand, float alignment, float fuel, bool gentleContact)
         {
-            if (!float.IsFinite(now) || !float.IsFinite(demand) || !float.IsFinite(alignment) || !float.IsFinite(fuel) || fuel <= 0 ||
+            if (!float.IsFinite(now) || !float.IsFinite(demand) || !float.IsFinite(alignment) || fuel <= 0 ||
                 alignment < 0.88f || gentleContact)
             { boosting = false; lastSwitch = now; return false; }
             bool requested = demand > (boosting ? 120 : 240);
@@ -129,11 +129,9 @@ namespace Bot
         private bool spent;
         private float contact = float.NegativeInfinity;
         public bool Confirmed { get; private set; }
-        public static bool IsSpent(JumpState state) => !state.Grounded &&
-            (state.DoubleJumped || state.Dodged || (state.Jumped && float.IsFinite(state.DodgeTimeout) && state.DodgeTimeout <= 0));
         public bool Observe(JumpState state, bool ownTouch, bool wheelsAligned, float height, float now)
         {
-            spent |= ResetEvidence.IsSpent(state);
+            spent |= state.DoubleJumped || state.Dodged;
             if (spent && ownTouch && wheelsAligned && height > 250) contact = now;
             if (spent && state.HasReset && height > 250 && now >= contact && now - contact <= 0.2f) Confirmed = true;
             return Confirmed;

@@ -38,7 +38,9 @@ namespace RedUtils
         public void Update(BoostPadStateT boost)
         {
             IsActive = boost.IsActive;
-            TimeUntilActive = boost.Timer;
+            // RLBot v5 reports seconds elapsed since pickup, not seconds remaining.
+            float respawnTime = IsLarge ? 10f : 4f;
+            TimeUntilActive = IsActive ? 0 : System.MathF.Max(0, respawnTime - boost.Timer);
         }
     }
 }
