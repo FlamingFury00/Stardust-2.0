@@ -269,11 +269,13 @@ Test("flight: common velocity must not create artificial look-ahead error", () =
     Vec3 shiftedAcceleration = PossessionControl.FlightAtHorizon(a, position + shift * 0.12f, velocity + shift, 0.12f);
     Near((baseAcceleration - shiftedAcceleration).Length(), 0, 0.001f);
 });
-Test("boost: hysteresis and immediate alignment safety gate", () =>
+Test("boost: impulse pulse and immediate safety gates", () =>
 {
     var gate = new BoostGate();
     Check(gate.Step(0, 300, 1, 50, false));
-    Check(gate.Step(0.01f, 180, 1, 50, false));
+    // The controller command may release immediately; Rocket League continues the physical
+    // boost burst to its minimum duration, which the gate accounts for internally.
+    Check(!gate.Step(0.01f, 180, 1, 50, false));
     Check(!gate.Step(0.02f, 300, 0.5f, 50, false));
     Check(!gate.Step(1, 1000, 1, 50, true));
     Check(!gate.Step(2, 1000, 1, 0, false));
