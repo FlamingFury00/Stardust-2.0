@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Timers;
 using RedUtils.Math;
 
 namespace RedUtils
@@ -41,6 +40,7 @@ namespace RedUtils
 		private float _elapsedTime = 0;
 		/// <summary>If we need to double jump we have to let go of jump for a few frames and then hold jump for a few frames. This counts those frames/summary>
 		private int _step = 0;
+		private readonly ImpulseBoostGate _boostGate = new();
 
 		/// <summary>Initializes a new aerial shot, with a specific ball slice and a shot target</summary>
 		public AerialShot(Car car, BallSlice slice, Vec3 shotTarget)
@@ -174,18 +174,39 @@ namespace RedUtils
 					}
 				}
 
-				// The final position of the car at the moment when it should be hitting the ball
-				Vec3 finPos = _jumped ? bot.Me.PredictLocation(timeRemaining) : (DoubleJumping ? bot.Me.LocationAfterDoubleJump(timeRemaining, _elapsedTime) : bot.Me.LocationAfterJump(timeRemaining, _elapsedTime));
-				// The offset between where the car should be at the time of collision, and where it actually will be
+				// Predict the uncontrolled endpoint first. While still launching, the jump model already
+				// includes gravity and jump forces. Once launched, solve the finite-time acceleration
+				// directly from the current car state with gravity feed-forward.
+				Vec3 finPos = _jumped ? bot.Me.PredictLocation(timeRemaining) :
+					(DoubleJumping ? bot.Me.LocationAfterDoubleJump(timeRemaining, _elapsedTime) :
+					bot.Me.LocationAfterJump(timeRemaining, _elapsedTime));
 				Vec3 offset = TargetLocation - finPos;
-				// The acceleration required to reach the target location in time
-				float requiredAccel = 2 * offset.Length() / MathF.Pow(timeRemaining, 2);
+				Vec3 requiredControl = _jumped
+					? AerialPhysics.RequiredAcceleration(bot.Me.Location, bot.Me.Velocity,
+						TargetLocation, timeRemaining, Game.Gravity)
+					: offset * (2 / MathF.Max(timeRemaining * timeRemaining, 0.000001f));
+				float requiredAccel = requiredControl.Length();
 
-				bot.AimAt(bot.Me.Location + offset, _jumped ? bot.Me.Location.Direction(Slice.Location) : Vec3.Up);
+				Vec3 desiredForward = requiredAccel > 1
+					? requiredControl / requiredAccel
+					: (offset.Length() > 10 ? offset.Normalize() : ShotDirection);
+				if (desiredForward.Length() < 0.001f || !ControlFinite(desiredForward))
+					desiredForward = bot.Me.Forward;
 
-				// Boosts and throttles when neccesary
-				bot.Controller.Boost = offset.Dot(bot.Me.Forward) / timeRemaining >= (Car.BoostAccel + Car.AirThrottleAccel) * MathF.Max(bot.DeltaTime, 13f / 120f) && offset.Angle(bot.Me.Forward) < 0.4f;
-				bot.Controller.Throttle = Utils.Cap(offset.Dot(bot.Me.Forward) / timeRemaining / (Car.AirThrottleAccel * MathF.Max(bot.DeltaTime, 1f / 120f)), -1, 1);
+				bot.AimAt(bot.Me.Location + desiredForward,
+					_jumped ? bot.Me.Location.Direction(Slice.Location) : Vec3.Up);
+
+				// Air throttle supplies the small continuous component; boost supplies only the residual
+				// through minimum-duration impulse pulses. Avoid starting an unnecessary new burst when
+				// already in the final contact envelope.
+				float forwardDemand = MathF.Max(0, requiredControl.Dot(bot.Me.Forward));
+				float alignment = bot.Me.Forward.Dot(desiredForward);
+				bool contactEnvelope = _jumped && timeRemaining < AerialPhysics.MinimumBoostTime &&
+					offset.Length() < 100 && forwardDemand < Car.BoostAccel * 0.5f;
+				bot.Controller.Boost = _boostGate.Step(Game.Time, forwardDemand, alignment,
+					bot.Me.Boost, contactEnvelope);
+				bot.Controller.Throttle = Utils.Cap(requiredControl.Dot(bot.Me.Forward) /
+					Car.AirThrottleAccel, -1, 1);
 
 				// If we are currently double jumping, let go of all direction keys so we don't flip on accident
 				if (_currentlyDoubleJumping)
@@ -196,8 +217,14 @@ namespace RedUtils
 					bot.Controller.Roll = 0;
 				}
 
-				// If the aerial is finished, or is no longer possible, stop it
-				if (timeRemaining <= 0f || (_jumped && offset.Length() > 50 && timeRemaining > 0.5f && requiredAccel * 0.8f > Car.AirThrottleAccel && (bot.Me.Boost == 0 || requiredAccel * 0.8f > (Car.BoostAccel + Car.AirThrottleAccel))) || (!ShotValid() && timeRemaining > 0.5f) || (bot.Me.IsGrounded && _jumped))
+				// If the aerial is finished, or the finite-time correction exceeds the available
+				// forward acceleration budget by a wide margin, stop instead of blindly boosting.
+				float availableAccel = bot.Me.Boost > 0
+					? Car.BoostAccel + Car.AirThrottleAccel
+					: Car.AirThrottleAccel;
+				if (timeRemaining <= 0f || (_jumped && offset.Length() > 50 && timeRemaining > 0.5f &&
+					requiredAccel * 0.8f > availableAccel) || (!ShotValid() && timeRemaining > 0.5f) ||
+					(bot.Me.IsGrounded && _jumped))
 				{
 					Finished = true;
 				}
