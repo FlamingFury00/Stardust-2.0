@@ -1,7 +1,7 @@
 name: Stardust control regression
 on:
   push:
-    branches: [feature/stardust-3-control-and-mechanics]
+    branches: [feature/stardust-3-control-and-mechanics, pro/stardust-runtime-performance]
   pull_request:
     branches: [v5]
 permissions:
