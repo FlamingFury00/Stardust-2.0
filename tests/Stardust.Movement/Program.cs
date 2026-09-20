@@ -19,8 +19,6 @@ Test("drive: sideways target must gate boost by yaw, not pitch", () =>
     var bot = new ProbeBot();
     Set(typeof(RLBot.Manager.Bot), "Index", bot, 0);
     Set(typeof(RLBot.Manager.Bot), "Team", bot, 0);
-    Set(typeof(RUBot), "Renderer", bot, new ExtendedRenderer(((RLBot.Manager.Bot)bot).Renderer));
-    ((RLBot.Manager.Bot)bot).Renderer.Begin("movement-regression");
     Cars.AllCars.Clear();
     var car = new Car
     {
@@ -33,7 +31,6 @@ Test("drive: sideways target must gate boost by yaw, not pitch", () =>
     Cars.AllCars.Add(car);
     new Drive(car, new Vec3(0, 3000, 17), 2300, allowDodges: false, wasteBoost: true).Run(bot);
     Check(!bot.Controller.Boost, "boost requested while target is approximately 90 degrees sideways");
-    ((RLBot.Manager.Bot)bot).Renderer.End();
 });
 
 Test("eta: stationary car must be slower than a car already at throttle cap", () =>
