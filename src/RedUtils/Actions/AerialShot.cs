@@ -38,8 +38,10 @@ namespace RedUtils
 		private bool _jumped = false;
 		/// <summary>The amount of time that has passed since the start of the aerial</summary>
 		private float _elapsedTime = 0;
-		/// <summary>If we need to double jump we have to let go of jump for a few frames and then hold jump for a few frames. This counts those frames/summary>
-		private int _step = 0;
+		/// <summary>Whether one real controller output has released jump before the second press.</summary>
+		private bool _releaseObserved = false;
+		/// <summary>Whether the second-jump rising edge has already been emitted.</summary>
+		private bool _secondJumpPressed = false;
 		private readonly ImpulseBoostGate _boostGate = new();
 
 		/// <summary>Initializes a new aerial shot, with a specific ball slice and a shot target</summary>
