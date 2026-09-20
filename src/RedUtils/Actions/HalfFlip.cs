@@ -60,7 +60,7 @@ namespace RedUtils
 			else if (elapsed < (_jumping ? 0.1f : 0) + 1f)
 			{
 				// Cancels the flip, and twists to face the corrent direction
-				bot.AimAt(bot.Me.Location + bot.Me.Velocity.Flatten());
+				bot.AimAtNoAlloc(bot.Me.Location + bot.Me.Velocity.Flatten());
 			}
 			else
 			{
