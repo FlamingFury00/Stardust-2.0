@@ -3,6 +3,7 @@ using Bot;
 using RedUtils;
 using RedUtils.Math;
 using RLBot.Flat;
+using BallPrediction = RedUtils.BallPrediction;
 
 int passed = 0, failed = 0;
 void Test(string name, Action action)
