@@ -1,4 +1,6 @@
 using Bot;
+using RedUtils;
+using RedUtils.Math;
 
 int passed = 0, failed = 0;
 void Test(string name, Action action)
@@ -66,6 +68,39 @@ Test("boost pulse: zero fuel never starts a burst", () =>
 {
     float duty = EffectiveDuty(500, fuel: 0);
     Check(duty == 0, $"zero-fuel duty was {duty:P1}");
+});
+
+Test("guidance: ballistic endpoint requires no control acceleration", () =>
+{
+    Vec3 position = new(100, -200, 600), velocity = new(700, 50, 250), gravity = new(0, 0, -650);
+    const float time = 0.8f;
+    Vec3 target = position + velocity * time + gravity * (0.5f * time * time);
+    Vec3 acceleration = AerialPhysics.RequiredAcceleration(position, velocity, target, time, gravity);
+    Check(acceleration.Length() < 0.001f, $"ballistic correction was {acceleration}");
+});
+
+Test("guidance: hover compensates gravity", () =>
+{
+    Vec3 acceleration = AerialPhysics.RequiredAcceleration(Vec3.Zero, Vec3.Zero, Vec3.Zero, 1,
+        new Vec3(0, 0, -650));
+    Check(MathF.Abs(acceleration.z - 650) < 0.001f && MathF.Abs(acceleration.x) < 0.001f,
+        $"hover acceleration was {acceleration}");
+});
+
+Test("guidance: finite-time acceleration reconstructs target", () =>
+{
+    Vec3 gravity = new(0, 0, -650), desired = new(200, -120, 350);
+    Vec3 position = new(10, 20, 500), velocity = new(300, -50, 100);
+    const float time = 0.65f;
+    Vec3 target = position + velocity * time + (gravity + desired) * (0.5f * time * time);
+    Vec3 recovered = AerialPhysics.RequiredAcceleration(position, velocity, target, time, gravity);
+    Check((recovered - desired).Length() < 0.01f, $"expected {desired}, recovered {recovered}");
+});
+
+Test("guidance: invalid horizon returns neutral acceleration", () =>
+{
+    Check(AerialPhysics.RequiredAcceleration(Vec3.Zero, Vec3.Zero, Vec3.X, 0, new Vec3(0, 0, -650)).Length() == 0,
+        "zero-time guidance was not neutral");
 });
 
 Console.WriteLine($"AERIAL CONTROL RESULT: {passed} passed, {failed} failed.");
