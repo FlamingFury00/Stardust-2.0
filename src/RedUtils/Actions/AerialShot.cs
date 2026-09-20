@@ -156,22 +156,22 @@ namespace RedUtils
 						// Holds the jump button for the first 0.2 seconds, giving us the maximum acceleration possible by that first jump
 						bot.Controller.Jump = true;
 					}
-					else if (_step < 3 && DoubleJumping)
+					else if (DoubleJumping && !_releaseObserved)
 					{
-						// Lets go of jump for 3 frames, if we are trying to double jump
+						// A second jump is edge-triggered. Emit exactly one real release output.
 						bot.Controller.Jump = false;
-						_step++;
+						_releaseObserved = true;
 					}
-					else if (_step < 6 && DoubleJumping)
+					else if (DoubleJumping && !_secondJumpPressed)
 					{
-						// Holds jump for 3 frames, giving us the double jump
+						// Emit one rising edge for the neutral second jump.
 						bot.Controller.Jump = true;
 						_currentlyDoubleJumping = true;
-						_step++;
+						_secondJumpPressed = true;
 					}
 					else
 					{
-						// We've finished jumping!
+						// Launch sequencing is complete; subsequent ticks are normal aerial control.
 						_jumped = true;
 					}
 				}
