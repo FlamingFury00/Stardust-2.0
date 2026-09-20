@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using RedUtils;
 using RedUtils.Math;
 
@@ -7,9 +8,11 @@ namespace Bot
     public sealed class TacticalFrame
     {
         public float MyEta, OpponentEta = 6, TeammateEta = 6;
-        public int FirstMan;
+        public float PressureTime = float.PositiveInfinity;
+        public int FirstMan, TeamRank, TeamCount = 1;
         public bool LastBack;
         public float FreeTime => OpponentEta - MyEta;
+        public bool UnderPressure => float.IsFinite(PressureTime);
     }
 
     public static class Tactics
@@ -31,8 +34,18 @@ namespace Bot
             return float.PositiveInfinity;
         }
 
-        public static bool WinsTie(float eta, int index, float otherEta, int otherIndex, float margin = 0.08f) =>
-            eta < otherEta - margin || (MathF.Abs(eta - otherEta) <= margin && index < otherIndex);
+        /// <summary>
+        /// Deterministic total order for race ownership. Pairwise epsilon comparisons are non-transitive:
+        /// A can tie B, B can tie C, while C still beats A. Fixed ETA buckets preserve a stable tie band
+        /// without allowing different observers to elect different winners from the same snapshot.
+        /// </summary>
+        public static bool WinsTie(float eta, int index, float otherEta, int otherIndex, float margin = 0.08f)
+        {
+            float bucketSize = MathF.Max(margin, 0.001f);
+            long bucket = float.IsFinite(eta) ? (long)MathF.Floor(MathF.Max(0, eta) / bucketSize) : long.MaxValue;
+            long otherBucket = float.IsFinite(otherEta) ? (long)MathF.Floor(MathF.Max(0, otherEta) / bucketSize) : long.MaxValue;
+            return bucket != otherBucket ? bucket < otherBucket : index < otherIndex;
+        }
 
         public static bool KickoffBefore(Car a, Car b, Vec3 ball, int team)
         {
@@ -74,22 +87,98 @@ namespace Bot
             {
                 if (car.Index == bot.Index) continue;
                 float eta = GroundEta(car);
-                if (car.Team != bot.Team) { result.OpponentEta = MathF.Min(result.OpponentEta, eta); continue; }
+                if (car.Team != bot.Team)
+                {
+                    result.OpponentEta = MathF.Min(result.OpponentEta, eta);
+                    continue;
+                }
+
+                result.TeamCount++;
                 result.TeammateEta = MathF.Min(result.TeammateEta, eta);
                 if (car.Location.y * side > bot.Me.Location.y * side + 100) result.LastBack = false;
-                if (WinsTie(eta, car.Index, best, result.FirstMan)) { best = eta; result.FirstMan = car.Index; }
+                if (WinsTie(eta, car.Index, result.MyEta, bot.Index)) result.TeamRank++;
+                if (WinsTie(eta, car.Index, best, result.FirstMan))
+                {
+                    best = eta;
+                    result.FirstMan = car.Index;
+                }
             }
             return result;
         }
 
+        /// <summary>
+        /// Distinct second-man and anchor lanes. The anchor stays outside the goal and uses the far-post
+        /// side; support stays higher and laterally offset so two non-challengers cannot stack.
+        /// </summary>
         public static Vec3 ShadowTarget(Vec3 ball, Vec3 ownGoal, bool lastBack)
         {
-            Vec3 target = ball + ControlMath.FlatUnit(ownGoal - ball, new Vec3(0, ownGoal.y < 0 ? -1 : 1, 0)) *
-                (lastBack ? 1400 : 1000);
             float side = ownGoal.y < 0 ? -1 : 1;
-            if (ball.y * side > 3400)
-                target = new Vec3(ball.x > 0 ? -750 : 750, side * 4700, 17);
-            return new Vec3(System.Math.Clamp(target.x, -3300, 3300), System.Math.Clamp(target.y, -4800, 4800), 17);
+            Vec3 goalward = ControlMath.FlatUnit(ownGoal - ball, new Vec3(0, side, 0));
+            Vec3 target;
+            if (ball.y * side > 3000)
+            {
+                if (lastBack)
+                {
+                    float postX = MathF.Abs(ball.x) < 150 ? 0 : -MathF.Sign(ball.x) * 700;
+                    target = new Vec3(postX, side * 4400, 17);
+                }
+                else
+                {
+                    float supportX = System.Math.Clamp(ball.x * 0.35f, -1200, 1200);
+                    target = new Vec3(supportX, side * 3250, 17);
+                }
+            }
+            else if (lastBack)
+            {
+                float postBias = MathF.Abs(ball.x) < 250 ? 0 : -MathF.Sign(ball.x) * 450;
+                target = ball + goalward * 1900 + Vec3.X * postBias;
+            }
+            else
+            {
+                float lane = MathF.Abs(ball.x) > 150 ? -MathF.Sign(ball.x) : 1;
+                target = ball + goalward * 900 + Vec3.X * lane * 700;
+            }
+            return new Vec3(System.Math.Clamp(target.x, -3200, 3200),
+                System.Math.Clamp(target.y, -4500, 4500), 17);
+        }
+
+        /// <summary>
+        /// Short-horizon pre-contact threat estimate. RLBot's ball prediction intentionally contains no
+        /// future car collisions, so use player intent only to decide whether an opponent is about to
+        /// create a new ball path; actual post-touch defense still follows refreshed ball prediction.
+        /// </summary>
+        public static float OpponentPressure(IEnumerable<Car> opponents, Ball ball, Vec3 ownGoal,
+            float maxContactTime = 1.35f)
+        {
+            if (opponents == null || ball == null || !ControlMath.Finite(ball.location))
+                return float.PositiveInfinity;
+
+            float earliest = float.PositiveInfinity;
+            Vec3 attackDirection = ControlMath.FlatUnit(ownGoal - ball.location,
+                new Vec3(0, ownGoal.y < 0 ? -1 : 1, 0));
+
+            foreach (Car opponent in opponents)
+            {
+                if (opponent == null || opponent.IsDemolished || !ControlMath.Finite(opponent.Location))
+                    continue;
+
+                Vec3 toBall = ControlMath.FlatUnit(ball.location - opponent.Location, opponent.Forward);
+                float attackAlignment = toBall.Dot(attackDirection);
+                if (attackAlignment < 0.35f) continue;
+
+                float facing = opponent.Forward.FlatNorm().Dot(toBall);
+                float closing = (opponent.Velocity - ball.velocity).Dot(toBall);
+                var input = opponent.LastInput ?? new RLBot.Flat.ControllerStateT();
+                bool forwardIntent = input.Boost || input.Throttle > 0.2f || closing > 450;
+                if (!forwardIntent || (facing < 0.4f && closing < 500)) continue;
+
+                float eta = Drive.GetEta(opponent, ball.location);
+                if (!opponent.IsGrounded && closing > 100)
+                    eta = MathF.Min(eta, opponent.Location.Dist(ball.location) / closing);
+                if (float.IsFinite(eta) && eta >= 0 && eta <= maxContactTime)
+                    earliest = MathF.Min(earliest, eta);
+            }
+            return earliest;
         }
 
         /// <summary>Bounded search. Expensive shot solvers run at tactical cadence, never at 120 Hz.</summary>
