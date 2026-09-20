@@ -128,26 +128,92 @@ namespace Bot
                 delta.z > 25 && delta.z < 420 && delta.Length() < 650 &&
                 (car.Velocity - ball.velocity).Length() < 1000 && opponentEta > 0.6f;
         }
+
+        /// <summary>
+        /// Aerial possession is only selected from a real carry setup: behind/below the ball,
+        /// velocity-matched, with time to continue the play, and not inside our defensive third.
+        /// </summary>
+        public static bool SafeToStart(Car car, Ball ball, Vec3 ownGoal, Vec3 theirGoal, float opponentEta)
+        {
+            if (!CanStart(car, ball, opponentEta) || opponentEta <= 0.9f)
+                return false;
+
+            if (ball.location.FlatDist(ownGoal) < 2500)
+                return false;
+
+            Vec3 lane = ControlMath.FlatUnit(theirGoal - ball.location, car.Forward);
+            Vec3 lateral = lane.Cross().Normalize();
+            Vec3 delta = ball.location - car.Location;
+            float along = delta.Dot(lane);
+            float across = MathF.Abs(delta.Dot(lateral));
+            float relativeSpeed = (car.Velocity - ball.velocity).Length();
+
+            return along > 40 && along < 450 &&
+                across < 180 &&
+                delta.z > 40 && delta.z < 330 &&
+                delta.Length() < 520 &&
+                relativeSpeed < 650;
+        }
+
+        /// <summary>Whether the ball is still close enough and velocity-matched enough to call this a carry.</summary>
+        public static bool HasControl(Car car, Ball ball, Vec3 theirGoal)
+        {
+            Vec3 lane = ControlMath.FlatUnit(theirGoal - ball.location, car.Forward);
+            Vec3 lateral = lane.Cross().Normalize();
+            Vec3 delta = ball.location - car.Location;
+            float along = delta.Dot(lane);
+            float across = MathF.Abs(delta.Dot(lateral));
+            float relativeSpeed = (car.Velocity - ball.velocity).Length();
+
+            return delta.Length() < 520 &&
+                delta.z > -20 && delta.z < 360 &&
+                along > -100 && along < 480 &&
+                across < 220 &&
+                relativeSpeed < 750;
+        }
         public void Run(RUBot bot)
         {
             Car car = bot.Me;
             Vec3 delta = Ball.Location - car.Location;
             if (car.IsGrounded || delta.Length() > 850 || Ball.Location.z < 180 || Game.Time - started > 3 ||
                 (car.Boost <= 0 && delta.Length() > 200)) { Finished = true; return; }
+
+            Vec3 ownGoalDirection = ControlMath.FlatUnit(bot.OurGoal.Location - Ball.Location,
+                new Vec3(0, Field.Side(bot.Team), 0));
+            bool dangerousReturn = Ball.Location.FlatDist(bot.OurGoal.Location) < 2800 &&
+                Ball.Velocity.Dot(ownGoalDirection) > 450;
+            bool controlled = HasControl(car, Ball.MainBall, bot.TheirGoal.Location);
+
+            // A touch which immediately loses the ball is not an air dribble. Recover instead of
+            // continuing to boost behind a now-free ball and leaving the net open.
+            if (dangerousReturn || (bot.OwnTouchThisTick && !controlled))
+            {
+                Finished = true;
+                bot.Action = new Recover();
+                return;
+            }
+            if (!controlled && Game.Time - started > 0.35f)
+            {
+                Finished = true;
+                return;
+            }
+
             if (bot is Stardust stardust && stardust.Options.FlipResets &&
                 stardust.Situation.OpponentEta > 1.2f && FlipReset.CanStart(car, Ball.MainBall, bot.Jump))
             { bot.Action = new FlipReset(bot.Jump); return; }
             const float horizon = 0.12f;
             Ball prediction = Ball.Prediction.TrySample(Game.Time + horizon, out Ball sample) ? sample : Ball.MainBall.Predict(horizon);
             Vec3 lane = ControlMath.FlatUnit(bot.TheirGoal.Location - prediction.location, car.Forward);
-            Vec3 contactNormal = ControlMath.Unit(lane * 0.48f + Vec3.Up * 0.88f, Vec3.Up);
+            // Track behind and slightly below the ball while matching its velocity. Do not add a
+            // permanent upward target velocity: that converts controlled carries into one-off pops.
+            Vec3 contactNormal = ControlMath.Unit(lane * 0.62f + Vec3.Up * 0.78f, Vec3.Up);
             Vec3 target = prediction.location - contactNormal * (Ball.Radius + 40);
-            Vec3 targetVelocity = prediction.velocity + lane * 80 + Vec3.Up * 80;
+            Vec3 targetVelocity = prediction.velocity + lane * 45;
             Vec3 acceleration = PossessionControl.FlightAtHorizon(car, target, targetVelocity, horizon);
             Vec3 nose = ControlMath.Unit(acceleration, car.Forward);
             ControlMath.Aim(car, bot.Controller, nose, Vec3.Up);
             float closing = (car.Velocity - Ball.Velocity).Dot(ControlMath.Unit(delta, Vec3.Up));
-            bool gentle = delta.Length() < 185 && closing > 160;
+            bool gentle = delta.Length() < 195 && closing > 100;
             bot.Controller.Boost = boost.Step(Game.Time, acceleration.Dot(car.Forward), car.Forward.Dot(nose), car.Boost, gentle);
             bot.Controller.Throttle = gentle ? 0 : 1;
             bot.Controller.Jump = false;
