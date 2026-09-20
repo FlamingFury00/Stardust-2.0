@@ -6,10 +6,10 @@ namespace Bot
 {
     public sealed class StardustOptions
     {
-        public bool GroundControl { get; init; } = Environment.GetEnvironmentVariable("STARDUST_GROUND_CONTROL") != "0";
-        public bool AerialCarry { get; init; } = Environment.GetEnvironmentVariable("STARDUST_AERIAL_CARRY") != "0";
-        // Auto attempts are still gated by attack-half, cover, fuel, cooldown, and acquisition geometry.
-        public bool FlipResets { get; init; } = Environment.GetEnvironmentVariable("STARDUST_FLIP_RESETS") != "0";
+        public bool GroundControl { get; init; } = Environment.GetEnvironmentVariable("STARDUST_GROUND_CONTROL") == "1";
+        public bool AerialCarry { get; init; } = Environment.GetEnvironmentVariable("STARDUST_AERIAL_CARRY") == "1";
+        // Experimental possession must not replace baseline shots without explicit opt-in.
+        public bool FlipResets { get; init; } = Environment.GetEnvironmentVariable("STARDUST_FLIP_RESETS") == "1";
         public bool Trace { get; init; } = Environment.GetEnvironmentVariable("STARDUST_TRACE") == "1";
     }
 
@@ -27,7 +27,7 @@ namespace Bot
         private Shot defensiveShot;
         public Stardust(string defaultAgentId = null) : base(defaultAgentId)
         {
-            Console.WriteLine($"Stardust robustness: resets={(Options.FlipResets ? "guarded-auto" : "off")}; STARDUST_TRACE=1 logs mechanic outcomes.");
+            Console.WriteLine($"Stardust tempo recovery: groundCarry={Options.GroundControl}; aerialCarry={Options.AerialCarry}; resets={(Options.FlipResets ? "experimental" : "off")}; STARDUST_TRACE=1 logs mechanic outcomes.");
         }
 
         public bool CanAttemptReset() => ResetPolicy.Allowed(Me, Ball.MainBall, Situation, Team,
@@ -96,10 +96,10 @@ namespace Bot
             bool owner = Situation.FirstMan == Index;
             bool goalSide = Me.Location.y * Field.Side(Team) >= Ball.Location.y * Field.Side(Team) - 150;
 
-            if (danger)
+            if (emergency)
             {
                 bool keepSave = owner && ReferenceEquals(Action, defensiveShot) && Action is Shot save &&
-                    save.IsPredictionValid() && (!emergency || save.Slice.Time - Game.Time < threatTime);
+                    save.IsPredictionValid() && save.Slice.Time - Game.Time < threatTime;
                 if (keepSave) return;
                 if (owner && (due || risingDanger) && Game.Time >= nextShotSearch)
                 {
@@ -108,23 +108,50 @@ namespace Bot
                     Action = defensiveShot;
                     if (Action != null) { SetDecision("defend / intercept before goal line"); return; }
                 }
-                if (Action is IPossessionAction || Action is Shot) Action = null;
+                if (Action is IPossessionAction || Action is Shot || Action is GetBoost) Action = null;
                 if (!Me.IsGrounded) { Action = new Recover(); SetDecision("defend / recover for next save"); return; }
+                if (owner && goalSide && Ball.Location.z < 240 && Me.Location.FlatDist(Ball.Location) < 1500)
+                {
+                    CloseGap(true);
+                    SetDecision("defend / immediate contact challenge");
+                    return;
+                }
                 Vec3 cover = owner ? Tactics.ShadowTarget(Ball.Location, OurGoal.Location, true) : Situation.SupportTarget;
-                if (emergency && Situation.Role == TeamRole.Anchor)
+                if (Situation.Role == TeamRole.Anchor)
                 {
                     Ball predicted = Ball.Prediction.TrySample(Game.Time + MathF.Min(threatTime, 0.5f), out Ball sample) ? sample : Ball.MainBall;
                     cover = new Vec3(System.Math.Clamp(predicted.location.x * 0.6f, -550, 550), Field.Side(Team) * 4450, 17);
                 }
-                if (!emergency && TryBoostDetour(cover, true)) return;
                 Position(cover, true);
-                SetDecision(emergency ? "defend / goal-mouth cover" : "defend / pre-shot pressure");
+                SetDecision("defend / goal-mouth cover");
                 return;
             }
+            // Pressure changes cadence/ownership, not every action into retreat.
+            if (pressure && Action is IPossessionAction) Action = null;
             if (!due && Action != null) return;
+            if (Action is GetBoost refill)
+            {
+                // Keep the same GetBoost (and its Drive/flip state) across replans.
+                Boost safe = RoutePlanner.SelectRefuel(Me, new[] { refill.ChosenBoost }, Ball.MainBall,
+                    Team, LivingTeammates, LivingOpponents, threatTime);
+                if (!refill.Finished && safe != null && Me.Location.FlatDist(Ball.Location) > 600) return;
+                Action = null;
+            }
             if (Action is IPossessionAction && owner) return;
             if (Action is Shot shot && owner && shot.IsPredictionValid() && !HasTeammateEarlierShot(shot.Slice.Time)) return;
             if (Action is IPossessionAction || Action is Shot) Action = null;
+
+            if (Me.IsGrounded && Me.Boost < 35 && Me.Location.FlatDist(Ball.Location) > 1500)
+            {
+                Boost full = RoutePlanner.SelectRefuel(Me, Field.Boosts, Ball.MainBall, Team,
+                    LivingTeammates, LivingOpponents, threatTime);
+                if (full != null)
+                {
+                    Action = new GetBoost(Me, full.Index);
+                    SetDecision("boost / committed full-pad refill");
+                    return;
+                }
+            }
 
             if (!Me.IsGrounded)
             {
@@ -159,21 +186,28 @@ namespace Bot
                 if (Game.Time >= nextShotSearch)
                 {
                     nextShotSearch = Game.Time + 0.08f;
-                    Shot attack = Tactics.SelectShot(this, false, Situation.OpponentEta, HasClaim);
-                    if (attack != null) { Action = attack; SetDecision("attack / setup-aware approach"); return; }
+                    Shot attack = Tactics.SelectShot(this, pressure, Situation.OpponentEta, HasClaim);
+                    if (attack != null) { Action = attack; SetDecision(pressure ? "defend / challenge and clear" : "attack / original shot execution"); return; }
                 }
-                if (Situation.FreeTime > 0.3f)
-                {
-                    Vec3 lane = ControlMath.FlatUnit(TheirGoal.Location - Ball.Location, Me.Forward);
-                    Position(Ball.Location - lane * 450, false);
-                    SetDecision("possess / approach behind ball"); return;
-                }
+                // A failed scoring solution is not a command to stop 700 units behind
+                // an opponent forever. Close toward a contact, then replan the shot.
+                CloseGap(pressure);
+                SetDecision(pressure ? "defend / pressure challenge" : "attack / close to contact");
+                return;
             }
             Vec3 support = TeamPlanning.Separate(Me, Situation.SupportTarget, Cars.AllLivingCars, Team,
                 Situation.Role == TeamRole.Anchor);
             if (TryBoostDetour(support, false)) return;
             Position(support, false);
             SetDecision(Situation.Role == TeamRole.Anchor ? "support / dedicated anchor" : "support / wide second man");
+        }
+
+        private void CloseGap(bool urgent)
+        {
+            float lookAhead = System.Math.Clamp(Me.Location.FlatDist(Ball.Location) / 4000, 0.05f, 0.25f);
+            Vec3 next = Ball.Location + Ball.Velocity * lookAhead;
+            Vec3 awayFromGoal = ControlMath.FlatUnit(TheirGoal.Location - next, Me.Forward);
+            Position(next - awayFromGoal * 90, urgent, stop: false);
         }
 
         private bool HasClaim(float sliceTime) => HasTeammateEarlierShot(sliceTime);
