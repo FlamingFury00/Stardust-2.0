@@ -46,7 +46,7 @@ Test("clear: emergency clear target is strongly away from own goal", () =>
     Vec3 target = (Vec3)method.Invoke(null, new object[] { ball, goal })!;
     Vec3 away = ControlMath.FlatUnit(ball - goal, Vec3.Y);
     Vec3 direction = ControlMath.FlatUnit(target - ball, away);
-    Check(direction.Dot(away) >= 0.85f, $"clear direction is not safely away from goal: dot={direction.Dot(away):F3}, target={target}");
+    Check(direction.Dot(away) >= 0.92f, $"clear direction is not safely away from goal: dot={direction.Dot(away):F3}, target={target}");
 });
 
 Test("clear: own-goal-pointing contact direction is rejected", () =>
@@ -55,6 +55,18 @@ Test("clear: own-goal-pointing contact direction is rejected", () =>
     Vec3 ball = new(0, -4400, 100), goal = new(0, -5120, 0);
     bool safe = (bool)method.Invoke(null, new object[] { new Vec3(0, -1, 0), ball, goal })!;
     Check(!safe, "a direction toward our goal was accepted as a defensive clear");
+});
+
+Test("clear: shallow diagonal escape is rejected inside danger area", () =>
+{
+    MethodInfo method = Method(typeof(Tactics), "ClearDirectionSafe");
+    Vec3 ball = new(0, -4400, 100), goal = new(0, -5120, 0);
+    Vec3 away = ControlMath.FlatUnit(ball - goal, Vec3.Y);
+    Vec3 diagonal = ControlMath.FlatUnit(away + Vec3.X * 0.58f, away);
+    float dot = diagonal.Dot(away);
+    Check(dot > 0.85f && dot < 0.90f, $"fixture angle is not in intended shallow-clear band: {dot:F3}");
+    bool safe = (bool)method.Invoke(null, new object[] { diagonal, ball, goal })!;
+    Check(!safe, $"shallow diagonal clear with away-dot {dot:F3} was accepted");
 });
 
 Test("possession setup: dangerous-side car routes around ball instead of through it", () =>
