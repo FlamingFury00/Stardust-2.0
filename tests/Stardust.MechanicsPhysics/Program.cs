@@ -61,20 +61,22 @@ Test("aerial carry: predicted vertical overshoot must not request upward boost",
         "air carry requested boost even though its short-horizon contact point is below the car's ballistic path");
 });
 
-Test("aerial carry: boost controller accounts for minimum physical burst", () =>
+Test("possession flight: identical ballistic motion needs no control acceleration", () =>
 {
-    System.Reflection.FieldInfo? gate = typeof(AerialCarry).GetField("boost",
-        BindingFlags.NonPublic | BindingFlags.Instance);
-    Check(gate != null && gate.FieldType == typeof(ImpulseBoostGate),
-        $"AerialCarry still uses {gate?.FieldType.Name ?? "no gate"} instead of ImpulseBoostGate");
-});
-
-Test("flip reset: acquisition boost controller accounts for minimum physical burst", () =>
-{
-    System.Reflection.FieldInfo? gate = typeof(FlipReset).GetField("boost",
-        BindingFlags.NonPublic | BindingFlags.Instance);
-    Check(gate != null && gate.FieldType == typeof(ImpulseBoostGate),
-        $"FlipReset still uses {gate?.FieldType.Name ?? "no gate"} instead of ImpulseBoostGate");
+    var car = new Car
+    {
+        Location = new Vec3(100, -200, 650),
+        Velocity = new Vec3(700, 120, 180),
+        Orientation = new Mat3x3(Vec3.Zero),
+        IsGrounded = false,
+        Boost = 50
+    };
+    const float horizon = 0.18f;
+    Vec3 targetPosition = car.PredictLocation(horizon);
+    Vec3 targetVelocity = car.PredictVelocity(horizon);
+    Vec3 acceleration = PossessionControl.FlightAtHorizon(car, targetPosition, targetVelocity, horizon);
+    Check(acceleration.Length() < 1f,
+        $"identical ballistic motion requested {acceleration} ({acceleration.Length():F1} uu/s^2) of control");
 });
 
 Test("ground dribble: pre-contact pressure triggers the flick window", () =>
