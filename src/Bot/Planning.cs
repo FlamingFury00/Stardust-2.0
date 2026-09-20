@@ -244,7 +244,7 @@ namespace Bot
             float side = ownGoal.y < 0 ? -1 : 1;
             Vec3 away = ControlMath.FlatUnit(ball - ownGoal, new Vec3(0, -side, 0));
             Vec3 flatShot = ControlMath.FlatUnit(shotDirection, away);
-            return flatShot.Dot(away) >= 0.82f;
+            return flatShot.Dot(away) >= 0.90f;
         }
 
         /// <summary>
