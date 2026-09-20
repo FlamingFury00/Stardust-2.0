@@ -182,6 +182,97 @@ namespace Bot
         }
 
         /// <summary>
+        /// Promote imminent opponent contact to a true defensive emergency when the ball is already
+        /// close enough to goal that waiting for the no-car-contact ball prediction would be late.
+        /// </summary>
+        public static bool CriticalDefense(Ball ball, Vec3 ownGoal, float pressureTime)
+        {
+            if (ball == null || !ControlMath.Finite(ball.location) || !ControlMath.Finite(ownGoal))
+                return false;
+
+            float distance = ball.location.FlatDist(ownGoal);
+            float side = ownGoal.y < 0 ? -1 : 1;
+            Vec3 toGoal = ControlMath.FlatUnit(ownGoal - ball.location, new Vec3(0, side, 0));
+            float goalwardSpeed = ball.velocity.Dot(toGoal);
+            bool imminentContact = float.IsFinite(pressureTime) && pressureTime >= 0 && pressureTime <= 0.9f;
+
+            return (distance <= 1900 && imminentContact) ||
+                (distance <= 1450 && goalwardSpeed > 300);
+        }
+
+        /// <summary>
+        /// Goal-line guard point used during critical defense. Unlike normal shadow spacing, this
+        /// deliberately stays inside the saving corridor and inside the posts.
+        /// </summary>
+        public static Vec3 EmergencyGuardTarget(Vec3 ball, Vec3 ownGoal, int teamRank, int teamCount)
+        {
+            float side = ownGoal.y < 0 ? -1 : 1;
+            float safeHalfWidth = Goal.Width / 2 - 170;
+            float y = side * (MathF.Abs(ownGoal.y) - 320);
+            float ballSign = MathF.Abs(ball.x) > 100 ? MathF.Sign(ball.x) : 1;
+            float x;
+
+            if (teamCount >= 3 && teamRank >= 2)
+                x = -ballSign * safeHalfWidth * 0.85f;
+            else if (teamRank > 0)
+                x = System.Math.Clamp(ball.x * 0.25f, -safeHalfWidth * 0.55f, safeHalfWidth * 0.55f);
+            else
+                x = System.Math.Clamp(ball.x * 0.35f, -safeHalfWidth * 0.7f, safeHalfWidth * 0.7f);
+
+            return new Vec3(x, y, 17);
+        }
+
+        /// <summary>
+        /// Far clearing point with a large angular margin away from our own goal. A small lateral
+        /// component moves clears out of the central shooting lane without compromising the away vector.
+        /// </summary>
+        public static Vec3 DefensiveClearPoint(Vec3 ball, Vec3 ownGoal)
+        {
+            float side = ownGoal.y < 0 ? -1 : 1;
+            Vec3 away = ControlMath.FlatUnit(ball - ownGoal, new Vec3(0, -side, 0));
+            float lateralSign = MathF.Abs(ball.x) > 100 ? MathF.Sign(ball.x) : 1;
+            Vec3 lateral = new Vec3(lateralSign, 0, 0);
+            Vec3 direction = ControlMath.FlatUnit(away + lateral * 0.32f, away);
+            Vec3 target = ball + direction * 5000;
+            target.z = MathF.Max(ball.z, 160);
+            return target;
+        }
+
+        /// <summary>Reject any defensive contact whose flat impulse points back into the own-goal cone.</summary>
+        public static bool ClearDirectionSafe(Vec3 shotDirection, Vec3 ball, Vec3 ownGoal)
+        {
+            float side = ownGoal.y < 0 ? -1 : 1;
+            Vec3 away = ControlMath.FlatUnit(ball - ownGoal, new Vec3(0, -side, 0));
+            Vec3 flatShot = ControlMath.FlatUnit(shotDirection, away);
+            return flatShot.Dot(away) >= 0.82f;
+        }
+
+        /// <summary>
+        /// Approach the attacking side of the ball without driving through it from the dangerous
+        /// upfield side. Wrong-side cars receive a lateral, goal-side setup waypoint first.
+        /// </summary>
+        public static Vec3 SafeApproachTarget(Car car, Vec3 ball, Vec3 ownGoal, Vec3 theirGoal)
+        {
+            Vec3 attackLane = ControlMath.FlatUnit(theirGoal - ball, new Vec3(0, theirGoal.y >= 0 ? 1 : -1, 0));
+            Vec3 goalward = ControlMath.FlatUnit(ownGoal - ball, -attackLane);
+            Vec3 desired = ball + goalward * 380;
+            if (car == null) return new Vec3(desired.x, desired.y, 17);
+
+            Vec3 carSide = ControlMath.FlatUnit(car.Location - ball, goalward);
+            if (carSide.Dot(goalward) >= -0.05f)
+                return new Vec3(desired.x, desired.y, 17);
+
+            Vec3 lateral = attackLane.Cross().Normalize();
+            float lateralSign = MathF.Sign((car.Location - ball).Dot(lateral));
+            if (lateralSign == 0) lateralSign = 1;
+            Vec3 target = ball + goalward * 320 + lateral * lateralSign * 650;
+            return new Vec3(
+                System.Math.Clamp(target.x, -3600, 3600),
+                System.Math.Clamp(target.y, -4800, 4800),
+                17);
+        }
+
+        /// <summary>
         /// Braking-aware speed for defensive parking. Rocket League braking is ~3500 uu/s^2;
         /// leave a buffer so the car reaches the guard point under control instead of crossing it.
         /// </summary>
@@ -221,7 +312,7 @@ namespace Bot
         {
             BallSlice[] slices = Ball.Prediction.Slices;
             if (slices == null || slices.Length == 0) return null;
-            Target target = new Target(emergency ? bot.OurGoal : bot.TheirGoal, emergency);
+            Target attackTarget = new Target(bot.TheirGoal);
             float next = Game.Time + 0.08f, bestScore = float.NegativeInfinity;
             int evaluated = 0;
             Shot best = null;
@@ -232,12 +323,20 @@ namespace Bot
                 if (t > 3 || evaluated >= 48) break;
                 next = slice.Time + 0.06f;
                 evaluated++;
-                if (!target.Fits(slice.Location) || (!emergency && claimed(slice.Time))) continue;
+                if ((!emergency && !attackTarget.Fits(slice.Location)) || (!emergency && claimed(slice.Time))) continue;
                 if (!emergency && opponentEta < 1.5f && t > opponentEta + 0.35f) continue;
-                Ball after = slice.ToBall();
-                Vec3 approach = (slice.Location - bot.Me.Location) / t;
-                after.velocity = approach.Cap(0, Car.MaxSpeed) + slice.Velocity * 0.25f;
-                Vec3 destination = target.Clamp(after);
+                Vec3 destination;
+                if (emergency)
+                {
+                    destination = DefensiveClearPoint(slice.Location, bot.OurGoal.Location);
+                }
+                else
+                {
+                    Ball after = slice.ToBall();
+                    Vec3 approach = (slice.Location - bot.Me.Location) / t;
+                    after.velocity = approach.Cap(0, Car.MaxSpeed) + slice.Velocity * 0.25f;
+                    destination = attackTarget.Clamp(after);
+                }
                 if (!ControlMath.Finite(destination)) continue;
                 Shot candidate = new GroundShot(bot.Me, slice, destination);
                 float cost = 0;
@@ -245,6 +344,8 @@ namespace Bot
                 if (!candidate.IsValid(bot.Me)) { candidate = new DoubleJumpShot(bot.Me, slice, destination); cost = 0.4f; }
                 if (!candidate.IsValid(bot.Me)) { candidate = new AerialShot(bot.Me, slice, destination); cost = 0.8f; }
                 if (!candidate.IsValid(bot.Me)) continue;
+                if (emergency && !ClearDirectionSafe(candidate.ShotDirection, slice.Location, bot.OurGoal.Location))
+                    continue;
                 float score = -t - cost - MathF.Max(0, t - opponentEta) * (emergency ? 0 : 2);
                 if (score > bestScore) { best = candidate; bestScore = score; }
                 if (best != null && t > best.Slice.Time - Game.Time + 0.3f) break;
