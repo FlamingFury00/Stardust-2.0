@@ -3,6 +3,8 @@ using RedUtils;
 using RedUtils.Math;
 using RLBot.Flat;
 
+Cars.Initialize(new GamePacketT { Players = new() });
+
 int passed = 0, failed = 0;
 void Test(string name, Action action)
 {
