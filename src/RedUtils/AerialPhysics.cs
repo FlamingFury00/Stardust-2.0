@@ -34,7 +34,7 @@ namespace RedUtils
     public sealed class ImpulseBoostGate
     {
         private float previous = float.NaN;
-        private float appliedUntil = float.NegativeInfinity;
+        private float lockoutUntil = float.NegativeInfinity;
         private float impulseDebt;
         private bool hasStarted;
 
@@ -68,39 +68,47 @@ namespace RedUtils
 
             bool safe = float.IsFinite(demand) && float.IsFinite(alignment) && float.IsFinite(fuel) &&
                 fuel > 0 && alignment >= 0.88f && !gentleContact;
+            if (!safe)
+                return false;
 
-            // Full positive air throttle already contributes this much along the nose. Boost should only
-            // approximate the residual acceleration that throttle cannot supply.
-            float desiredBoostAcceleration = safe
-                ? System.Math.Clamp(demand - Car.AirThrottleAccel, 0, Car.BoostAccel)
-                : 0;
+            // Positive air throttle supplies 66.667 uu/s^2 independently. Boost is responsible
+            // only for the residual forward acceleration.
+            float desiredBoostAcceleration =
+                System.Math.Clamp(demand - Car.AirThrottleAccel, 0, Car.BoostAccel);
 
-            bool physicallyApplied = now < appliedUntil;
             if (dt > 0)
             {
                 impulseDebt += desiredBoostAcceleration * dt;
-                if (physicallyApplied)
-                    impulseDebt -= Car.BoostAccel * dt;
-
                 float debtLimit = Car.BoostAccel * AerialPhysics.MinimumBoostTime * 2;
                 impulseDebt = System.Math.Clamp(impulseDebt, -debtLimit, debtLimit);
             }
 
-            if (!safe || physicallyApplied || dt == 0)
+            if (desiredBoostAcceleration <= 0 || dt == 0)
                 return false;
 
-            // Starting the first useful burst immediately avoids one-tick latency for urgent aerials.
-            // Subsequent starts wait until requested impulse has repaid the previous minimum burst.
-            if (!hasStarted ? desiredBoostAcceleration > 0 : impulseDebt > 0)
+            // At near-full demand, pulse-width modulation only creates needless one-tick gaps.
+            // Hold the command continuously and clear debt because actual thrust ~= requested thrust.
+            if (desiredBoostAcceleration >= Car.BoostAccel * 0.9f)
             {
-                float fuelDuration = fuel / Car.BoostConsumption;
-                float burstDuration = MathF.Min(AerialPhysics.MinimumBoostTime, MathF.Max(dt, fuelDuration));
-                appliedUntil = now + burstDuration;
+                impulseDebt = 0;
                 hasStarted = true;
+                lockoutUntil = now;
+                return true;
+            }
 
-                // This tick begins applying boost immediately, so account for that impulse now rather
-                // than waiting for the next controller frame.
-                impulseDebt -= Car.BoostAccel * dt;
+            // One true controller tick starts a physical burst that Rocket League will continue even
+            // after the command is released. Never retrigger inside that guaranteed burst.
+            if (now < lockoutUntil)
+                return false;
+
+            if (!hasStarted || impulseDebt > 0)
+            {
+                float burstDuration = MathF.Min(AerialPhysics.MinimumBoostTime,
+                    MathF.Max(dt, fuel / Car.BoostConsumption));
+                float burstImpulse = Car.BoostAccel * burstDuration;
+                impulseDebt -= burstImpulse;
+                lockoutUntil = now + burstDuration;
+                hasStarted = true;
                 return true;
             }
 
@@ -110,7 +118,7 @@ namespace RedUtils
         public void Reset()
         {
             previous = float.NaN;
-            appliedUntil = float.NegativeInfinity;
+            lockoutUntil = float.NegativeInfinity;
             impulseDebt = 0;
             hasStarted = false;
         }
