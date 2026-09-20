@@ -181,7 +181,7 @@ namespace RedUtils
 				_jumpElapsed += bot.DeltaTime;
 
 				// Aim in our dodge direction, and air roll such that our roof is facing away from our dodge direction
-				bot.AimAt(bot.Me.Location + DodgeDirection, DodgeDirection.Cross(DodgeDirection.Cross(-surface.Normal)).Normalize());
+				bot.AimAtNoAlloc(bot.Me.Location + DodgeDirection, DodgeDirection.Cross(DodgeDirection.Cross(-surface.Normal)).Normalize());
 
 				if (timeRemaining < -0.1f || (timeRemaining > 0.4f && !ShotValid()) || (Ball.LatestTouch != null && _latestTouchTime != Ball.LatestTouch.Time && Ball.LatestTouch.PlayerIndex != bot.Index && Ball.Location.Dist(bot.Me.Location) > 200))
 				{
