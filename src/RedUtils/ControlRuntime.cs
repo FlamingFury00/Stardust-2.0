@@ -24,6 +24,62 @@ namespace RedUtils
         }
     }
 
+    public readonly struct SharedWorldDecision
+    {
+        public readonly bool Refresh;
+        public readonly bool Reinitialize;
+        public SharedWorldDecision(bool refresh, bool reinitialize)
+        {
+            Refresh = refresh;
+            Reinitialize = reinitialize;
+        }
+    }
+
+    /// <summary>
+    /// De-duplicates static world refreshes when multiple bot instances receive the same
+    /// RLBot physics frame. Call only while holding the shared world lock.
+    /// </summary>
+    public sealed class SharedWorldFrameGate
+    {
+        private bool initialized;
+        private uint frame;
+        private float time;
+        private int players;
+
+        public SharedWorldDecision Step(uint nextFrame, float nextTime, int nextPlayers)
+        {
+            if (!float.IsFinite(nextTime) || nextPlayers < 0)
+                return new SharedWorldDecision(true, true);
+
+            if (!initialized)
+            {
+                initialized = true;
+                frame = nextFrame;
+                time = nextTime;
+                players = nextPlayers;
+                return new SharedWorldDecision(true, true);
+            }
+
+            if (frame == nextFrame && time == nextTime && players == nextPlayers)
+                return new SharedWorldDecision(false, false);
+
+            float delta = nextTime - time;
+            bool reinitialize = players != nextPlayers || delta < 0 || delta > 0.25f;
+            frame = nextFrame;
+            time = nextTime;
+            players = nextPlayers;
+            return new SharedWorldDecision(true, reinitialize);
+        }
+
+        public void Reset()
+        {
+            initialized = false;
+            frame = 0;
+            time = 0;
+            players = 0;
+        }
+    }
+
     /// <summary>Persistent packet flags, NOT transient Jumping/Dodging animation states.</summary>
     public readonly struct JumpState
     {
