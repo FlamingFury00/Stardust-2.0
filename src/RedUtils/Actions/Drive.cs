@@ -123,7 +123,7 @@ namespace RedUtils
 				if (bot.Me.IsGrounded || bot.Me.Velocity.FlatLen() < 500)
 				{
 					// Aim at the final target assuming we shoukdn't recover
-					angleToTarget = bot.AimAt(finalTarget, backwards: Backwards)[0];
+					angleToTarget = MathF.Abs(bot.AimAt(finalTarget, backwards: Backwards)[1]);
 				}
 				else
 				{
@@ -141,7 +141,7 @@ namespace RedUtils
 											&& mySurface.Normal.Dot(Vec3.Up) > 0.9f && bot.Me.Velocity.Normalize().Dot(bot.Me.Forward) > 0.9f;
 
 				// Draws a debug line to represent the final target
-				bot.Renderer.Line3D(finalTarget, finalTarget + Field.NearestSurface(finalTarget).Normal * 200, Color.LimeGreen);
+				bot.Renderer?.Line3D(finalTarget, finalTarget + Field.NearestSurface(finalTarget).Normal * 200, Color.LimeGreen);
 
 				// Estimates where we'll be after dodging
 				Vec3 predictedLocation = bot.Me.LocationAfterDodge();
@@ -216,7 +216,7 @@ namespace RedUtils
 			}
 
 			// Draws a debug line to represent the target
-			bot.Renderer.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
+			bot.Renderer?.Line3D(Field.LimitToNearestSurface(Target), Field.LimitToNearestSurface(Target) + targetSurface.Normal * 200, Color.LimeGreen);
 			
 			// Prevents this action from being interrupted during a dodge
 			Interruptible = Action == null || Action.Interruptible;
@@ -367,7 +367,7 @@ namespace RedUtils
 			Surface carSurface = Field.FindLandingSurface(car);
 			Vec3 surfaceNormal = carSurface.Normal;
 			// Calculates the forward and right direction for the car when it start driving
-			Vec3 carForward = car.IsGrounded ? car.Forward : (car.Velocity.FlatLen() > 500 ? car.Velocity.FlatNorm(surfaceNormal) : car.Location.FlatDirection(target, surfaceNormal));
+			Vec3 carForward = car.IsGrounded ? car.Forward : (car.Velocity.FlatLen(surfaceNormal) > 500 ? car.Velocity.FlatNorm(surfaceNormal) : car.Location.FlatDirection(target, surfaceNormal));
 			Vec3 carRight = carForward.Cross(car.IsGrounded ? -car.Up : -surfaceNormal).Normalize();
 
 			// Grabs the current speed of the car, as well as an estimate of the angle of the next turn
@@ -440,51 +440,30 @@ namespace RedUtils
 		/// <param name="backwards">Whether or not we are planning to drive backwards</param>
 		public static float GetEta(Car car, Vec3 target, bool backwards, bool allowDodges)
 		{
-			// Gets the distance to drive to the given target, as well and the angle, and radius of the turn we have to make to face the target
+			// Turn geometry remains the existing RedUtils approximation. Straight-line travel is
+			// integrated from the actual post-turn speed instead of assuming an instant 1400 uu/s.
 			float distance = GetDistance(car, target, backwards, out float angle, out float radius);
-			// Seperates the distance from the turn distance
-			float turnDistance = angle * radius;
-			distance -= turnDistance;
+			float turnDistance = MathF.Max(0, angle * radius);
+			float straightDistance = MathF.Max(0, distance - turnDistance);
 
-			// Gets the normal of the nearest surface to the car when it starts driving
 			Vec3 surfaceNormal = car.IsGrounded ? Field.NearestSurface(car.Location).Normal : Field.FindLandingSurface(car).Normal;
-			// Calculates the car's forward direction when it starts driving, and it's velocity in that direction
-			Vec3 carForward = car.IsGrounded ? car.Forward : (car.Velocity.FlatLen() > 500 ? car.Velocity.FlatNorm(surfaceNormal) : car.Location.FlatDirection(target, surfaceNormal));
+			Vec3 carForward = car.IsGrounded ? car.Forward :
+				(car.Velocity.FlatLen(surfaceNormal) > 500 ? car.Velocity.FlatNorm(surfaceNormal) : car.Location.FlatDirection(target, surfaceNormal));
 			float currentSpeed = carForward.Dot(car.Velocity);
 			float landingTime = car.PredictLandingTime();
+			if (!float.IsFinite(landingTime) || landingTime < 0) landingTime = 0;
 
-			if (backwards)
-			{
-				// Calculates the speed it will be moving at after the turn
-				float speed = MathF.Max(SpeedAfterTurn(-currentSpeed, angle, 0.8f), 1400);
-				// Estimates how long it will take to drive to the target backwards
-				return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) + distance / speed;
-			}
-			else
-			{
-				// Calculates the minimum speed of the car after the turn
-				float minSpeed = MathF.Max(SpeedAfterTurn(currentSpeed, angle), 1400);
-				// Calculates the maximum possible speed of the car after the turn
-				float finSpeed = Utils.Cap(minSpeed + Car.BoostAccel * car.Boost / Car.BoostConsumption, 1400, Car.MaxSpeed);
-				// Calculates the maximum possible distance covered while boosting
-				float distanceWhileBoosting = (MathF.Pow(finSpeed, 2) - MathF.Pow(minSpeed, 2)) / (2 * Car.BoostAccel);
+			float turnSpeed = MathF.Max(SpeedFromTurnRadius(radius), 400);
+			float turnTime = turnDistance / turnSpeed;
+			float postTurnSpeed = backwards
+				? MathF.Max(0, SpeedAfterTurn(-currentSpeed, angle, 0.8f))
+				: MathF.Max(0, SpeedAfterTurn(currentSpeed, angle));
 
-				if (distance < distanceWhileBoosting)
-				{
-					// Calculates the actual maxmimum speed of the car after the turn
-					finSpeed = Utils.Cap(MathF.Sqrt(MathF.Max(MathF.Pow(minSpeed, 2) + 2 * Car.BoostAccel * distance, 0)), 1400, Car.MaxSpeed);
-					// Estimates how long it will take to drive to the target while boosting
-					return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) + distance / ((minSpeed + finSpeed) / 2);
-				}
-				if (allowDodges && distance / finSpeed > 1.25f)
-				{
-					// If we have enough time to dodge, then estimate how long it will take to drive to the target while boosting, and then dodging!
-					return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) + distanceWhileBoosting / ((minSpeed + finSpeed) / 2) + (distance - distanceWhileBoosting) / (finSpeed + 500);
-				}
-
-				// Estimates how long it will take to drive to the target
-				return landingTime + turnDistance / MathF.Max(SpeedFromTurnRadius(radius), 400) + distanceWhileBoosting / ((minSpeed + finSpeed) / 2) + (distance - distanceWhileBoosting) / finSpeed;
-			}
+			// Dodge/speed-flip execution is handled by Drive.Run. ETA intentionally does not grant
+			// an unverified flip-time discount; that keeps race ownership conservative until a
+			// dedicated flip rollout is validated.
+			float straightTime = DrivePhysics.TravelTime(straightDistance, postTurnSpeed, backwards ? 0 : car.Boost, backwards);
+			return landingTime + turnTime + straightTime;
 		}
 
 		/// <summary>Estimates the maximum possible turn radius in order to still hit the target</summary>
