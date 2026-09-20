@@ -122,8 +122,10 @@ namespace RedUtils
 				float angleToTarget;
 				if (bot.Me.IsGrounded || bot.Me.Velocity.FlatLen() < 500)
 				{
-					// Aim at the final target assuming we shoukdn't recover
-					angleToTarget = MathF.Abs(bot.AimAt(finalTarget, backwards: Backwards)[1]);
+					// Ground boost safety is a heading/yaw question. Pitch is near zero for
+					// almost every flat-ground target and must never gate forward boost.
+					float[] aimAngles = bot.AimAt(finalTarget, backwards: Backwards);
+					angleToTarget = GroundHeadingError(aimAngles[0], aimAngles[1]);
 				}
 				else
 				{
@@ -335,6 +337,12 @@ namespace RedUtils
 			return finalTarget;
 		}
 
+		/// <summary>Ground heading error for steering/boost gates. Pitch is intentionally ignored.</summary>
+		public static float GroundHeadingError(float pitchError, float yawError)
+		{
+			return MathF.Abs(yawError);
+		}
+
 		/// <summary>Finds the distance the car will travel in order to get to the given target</summary>
 		public static float GetDistance(Car car, Vec3 target)
 		{
@@ -372,13 +380,29 @@ namespace RedUtils
 
 			// Grabs the current speed of the car, as well as an estimate of the angle of the next turn
 			float currentSpeed = car.Velocity.Dot(carForward);
-			angle = (backwards ? -carForward : carForward).FlatAngle(target - carPos, surfaceNormal);
-			// Using those values, we estimate the average turn speed of the car, and use that to calculate the average turn radius
+			Vec3 displacement = target - carPos;
+			float directDistance = Field.DistanceBetweenPoints(carPos, target);
+			if (directDistance < 0.001f)
+			{
+				angle = 0;
+				radius = TurnRadius(MathF.Abs(currentSpeed));
+				return 0;
+			}
+
+			angle = (backwards ? -carForward : carForward).FlatAngle(displacement, surfaceNormal);
+			// Using those values, estimate the average turn speed and radius.
 			float turnSpeed = backwards ? SpeedAfterTurn(-currentSpeed, angle, 0.4f) : SpeedAfterTurn(currentSpeed, angle, 0.5f);
 			radius = TurnRadius(turnSpeed);
 
-			// Finds the point of rotation for our car
-			Vec3 nearestTurnCenter = carPos + carRight * MathF.Sign(carRight.Dot(target - carPos)) * radius;
+			// Collinear forward travel has no circular pre-turn. Handling it explicitly also
+			// avoids MathF.Sign(0) placing the turn center on top of the car.
+			if (angle < 0.0005f)
+				return directDistance;
+
+			float turnSide = MathF.Sign(carRight.Dot(displacement));
+			if (turnSide == 0) turnSide = 1;
+			// Finds the point of rotation for our bot.
+			Vec3 nearestTurnCenter = carPos + carRight * turnSide * radius;
 			Vec3 limitedTurnCenter = carSurface.Limit(nearestTurnCenter);
 			// If the calculated point of rotation is outside the map, that means the point of rotation is on a different surface from the car
 			if (nearestTurnCenter.Dist(limitedTurnCenter) > 1)
@@ -394,11 +418,15 @@ namespace RedUtils
 
 			if (distance < radius)
 			{
-				// If we are too closse to the target, adjust our turn radius and point of rotation
-				radius = TurnRadius(car, target);
-				nearestTurnCenter = carPos + carRight * MathF.Sign(carRight.Dot(target - carPos)) * radius;
-
-				distance = Field.DistanceBetweenPoints(nearestTurnCenter, target);
+				// If we are too close to the target, tighten the radius only when the
+				// geometry produces a finite solution.
+				float adjustedRadius = TurnRadius(car, target);
+				if (float.IsFinite(adjustedRadius) && adjustedRadius > 0)
+				{
+					radius = adjustedRadius;
+					nearestTurnCenter = carPos + carRight * turnSide * radius;
+					distance = Field.DistanceBetweenPoints(nearestTurnCenter, target);
+				}
 			}
 
 			// Does some fancy math things that calculates the actual turn angle
