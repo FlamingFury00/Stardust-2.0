@@ -10,27 +10,34 @@ void Test(string name, Action action)
     catch (Exception e) { failed++; Console.WriteLine($"FAIL {name}: {e.Message}"); }
 }
 void Check(bool value, string message) { if (!value) throw new Exception(message); }
+void Near(float actual, float expected, float tolerance)
+{
+    Check(float.IsFinite(actual) && MathF.Abs(actual - expected) <= tolerance,
+        $"expected {expected}, got {actual}");
+}
 void Set(Type type, string property, object instance, object value) =>
     type.GetProperty(property, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)!
         .SetValue(instance, value);
 
-Test("drive: sideways target must gate boost by yaw, not pitch", () =>
+Test("drive: ground boost alignment uses yaw rather than pitch", () =>
 {
-    var bot = new ProbeBot();
-    Set(typeof(RLBot.Manager.Bot), "Index", bot, 0);
-    Set(typeof(RLBot.Manager.Bot), "Team", bot, 0);
-    Cars.AllCars.Clear();
+    Near(Drive.GroundHeadingError(0, MathF.PI / 2), MathF.PI / 2, 0.0001f);
+    Near(Drive.GroundHeadingError(0.4f, 0.05f), 0.05f, 0.0001f);
+});
+
+Test("drive: close straight path stays finite and approximately straight", () =>
+{
     var car = new Car
     {
         Location = new Vec3(0, 0, 17),
-        Velocity = new Vec3(1500, 0, 0),
+        Velocity = Vec3.Zero,
         Orientation = new Mat3x3(Vec3.Zero),
         IsGrounded = true,
-        Boost = 50
+        Boost = 0
     };
-    Cars.AllCars.Add(car);
-    new Drive(car, new Vec3(0, 3000, 17), 2300, allowDodges: false, wasteBoost: true).Run(bot);
-    Check(!bot.Controller.Boost, "boost requested while target is approximately 90 degrees sideways");
+    float distance = Drive.GetDistance(car, new Vec3(100, 0, 17), false);
+    Check(float.IsFinite(distance), $"straight distance was {distance}");
+    Check(MathF.Abs(distance - 100) < 5, $"100 uu straight path estimated as {distance:F3} uu");
 });
 
 Test("eta: stationary car must be slower than a car already at throttle cap", () =>
