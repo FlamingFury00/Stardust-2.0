@@ -192,7 +192,7 @@ namespace RedUtils
 					bot.Controller.Throttle = offset.Normalize().Dot(bot.Me.Forward) > 0.5f ? 1 : 0;
 
 					// Aim in the shot direction
-					bot.AimAt(bot.Me.Location + ShotDirection);
+					bot.AimAtNoAlloc(bot.Me.Location + ShotDirection);
 				}
 			}
 		}
